@@ -32,6 +32,8 @@ OPENAI_MODEL=gpt-4o-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
+각 `weekXX.py`는 실행 위치와 상관없이 파일이 있는 repo 루트의 `.env`를 명시적으로 읽습니다. 노트북도 `notebooks/learning/`에서 실행해도 repo 루트를 찾아 `.env`를 로드합니다.
+
 ## Run Notebooks
 
 Jupyter에서 `notebooks/learning/` 아래 노트북을 1주차부터 순서대로 실행합니다.

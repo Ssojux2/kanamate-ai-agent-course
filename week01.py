@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 import gradio as gr
@@ -14,6 +15,8 @@ from langchain_openai import ChatOpenAI
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
+PROJECT_ROOT = Path(__file__).resolve().parent
+ENV_PATH = PROJECT_ROOT / ".env"
 
 
 # ---------------------------------------------------------------------------
@@ -22,8 +25,8 @@ DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def load_project_env() -> None:
-    """Load .env from the current working tree without hard-coded paths."""
-    load_dotenv()
+    """Load the repo-root .env next to this weekly script."""
+    load_dotenv(ENV_PATH, override=False)
 
 
 def openai_model_name() -> str:

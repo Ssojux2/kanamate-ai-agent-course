@@ -34,6 +34,7 @@ week06.py
 원칙:
 
 - `.env`의 `OPENAI_API_KEY`를 필수로 사용한다.
+- `weekXX.py`와 노트북 준비 셀은 repo 루트의 `.env`를 명시적으로 로드한다.
 - `OPENAI_MODEL` 기본값은 `gpt-4o-mini`, `OPENAI_EMBEDDING_MODEL` 기본값은 `text-embedding-3-small`이다.
 - 노트북은 학습 흐름과 실행 예시를 제공하고, 코드 작성형 실습은 같은 주차의 `weekXX.py`에서 실행한다.
 - Gradio 앱은 `python weekXX.py` 명령으로 실행한다.
