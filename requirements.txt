@@ -8,6 +8,4 @@ pydantic
 gradio
 jupyter
 ipykernel
-pytest
 nbformat
-
