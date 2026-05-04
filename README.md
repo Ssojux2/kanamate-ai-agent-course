@@ -43,6 +43,7 @@ jupyter lab
 ```
 
 각 노트북의 6번 실습은 같은 주차의 `weekXX.py` 파일을 import해 실행합니다.
+각 노트북의 6-1번 셀은 `create_demo()`를 import하지 않고, 노트북 안에서 Gradio UI를 직접 구성합니다.
 
 ## Run Gradio UI
 

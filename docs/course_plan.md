@@ -53,7 +53,7 @@ week06.py
 | 5. 확장 예제 실행 | 4번에서 추가한 같은 기능을 실행하고 trace, route, structured response, 저장 상태 확인 |
 | 6. 코드 작성형 실습(.py 파일) | 같은 주차 `weekXX.py`의 helper를 실행 |
 | 6-0. 실습 자동 점검 | 모델 문구가 아니라 trace, structured response, payload를 assert로 확인 |
-| 6-1. 로컬 Gradio UI 실습 | `python weekXX.py`로 해당 주차 WebUI를 실행 |
+| 6-1. 노트북 Gradio UI 실습 | 노트북 안에서 `gr.Blocks` UI를 직접 구성하고, 독립 실행은 `python weekXX.py`로 확인 |
 | 7. 회고 | 배운 점과 다음 주 연결 포인트 |
 
 ## 4. 6주 로드맵
