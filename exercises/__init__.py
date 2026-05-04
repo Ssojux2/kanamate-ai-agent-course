@@ -1,0 +1,2 @@
+"""Weekly KanaMate practice modules."""
+
