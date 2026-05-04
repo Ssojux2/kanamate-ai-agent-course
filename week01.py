@@ -94,9 +94,16 @@ def reset_schedules() -> None:
     schedules.clear()
 
 
-@tool("create_schedule", description="개인 일정을 생성한다. date는 YYYY-MM-DD, start_time은 HH:MM 형식이다.")
-def create_schedule(title: str, date: str, start_time: str, attendees: list[str] | None = None) -> str:
-    """Create a personal schedule."""
+def offline_mode_enabled() -> bool:
+    return os.getenv("KANAMATE_OFFLINE", "").lower() in {"1", "true", "yes", "on"}
+
+
+def is_quota_error(exc: Exception) -> bool:
+    message = str(exc)
+    return "insufficient_quota" in message or "Error code: 429" in message
+
+
+def append_schedule(title: str, date: str, start_time: str, attendees: list[str] | None = None) -> dict[str, Any]:
     schedule = {
         "id": f"schedule-{len(schedules) + 1}",
         "title": title,
@@ -105,6 +112,58 @@ def create_schedule(title: str, date: str, start_time: str, attendees: list[str]
         "attendees": attendees or [],
     }
     schedules.append(schedule)
+    return schedule
+
+
+def simple_offline_arguments(request: str) -> dict[str, Any]:
+    attendees = [name for name in ["민수", "지아", "준호"] if name in request]
+    start_time = "10:00"
+    if "14시" in request or "오후 2시" in request:
+        start_time = "14:00"
+    elif "15시" in request or "오후 3시" in request:
+        start_time = "15:00"
+    elif "9시" in request or "오전 9시" in request:
+        start_time = "09:00"
+
+    date = "2026-04-24" if "내일" in request else "2026-04-27"
+    return {
+        "title": request,
+        "date": date,
+        "start_time": start_time,
+        "attendees": attendees,
+    }
+
+
+def run_offline_schedule_request(request: str, reason: str = "") -> dict[str, Any]:
+    arguments = simple_offline_arguments(request)
+    created_schedule = append_schedule(**arguments)
+    create_content = json.dumps({"ok": True, "schedule": created_schedule}, ensure_ascii=False)
+    list_content = json.dumps({"ok": True, "schedules": schedules}, ensure_ascii=False)
+
+    notice = "OpenAI API quota 문제로 로컬 오프라인 모드 결과를 표시합니다."
+    if reason:
+        notice = f"{notice} ({reason})"
+
+    return {
+        "answer": f"[오프라인 모드] 일정을 생성했습니다. {notice}",
+        "list_answer": "[오프라인 모드] 현재 일정 목록을 조회했습니다.",
+        "trace": [
+            {"event": "tool_call", "tool_name": "create_schedule", "arguments": arguments},
+            {"event": "tool_result", "tool_name": "create_schedule", "content": create_content},
+        ],
+        "list_trace": [
+            {"event": "tool_call", "tool_name": "list_schedules", "arguments": {}},
+            {"event": "tool_result", "tool_name": "list_schedules", "content": list_content},
+        ],
+        "created_schedule": created_schedule,
+        "schedules": list(schedules),
+    }
+
+
+@tool("create_schedule", description="개인 일정을 생성한다. date는 YYYY-MM-DD, start_time은 HH:MM 형식이다.")
+def create_schedule(title: str, date: str, start_time: str, attendees: list[str] | None = None) -> str:
+    """Create a personal schedule."""
+    schedule = append_schedule(title, date, start_time, attendees)
     return json.dumps({"ok": True, "schedule": schedule}, ensure_ascii=False)
 
 
@@ -128,11 +187,19 @@ def build_week01_agent(max_tokens: int = 500):
 
 def run_student_schedule_request(request: str, agent: Any | None = None) -> dict[str, Any]:
     """Run Nana with one schedule request, then list schedules for the UI."""
+    if agent is None and offline_mode_enabled():
+        return run_offline_schedule_request(request, "KANAMATE_OFFLINE=1")
+
     nana_agent = agent or build_week01_agent()
 
     # TODO 1: nana_agent.invoke로 request를 실행한다.
     # 모범 답안 1(강의자료 테스트용)
-    result = nana_agent.invoke({"messages": [{"role": "user", "content": request}]})
+    try:
+        result = nana_agent.invoke({"messages": [{"role": "user", "content": request}]})
+    except Exception as exc:
+        if agent is None and is_quota_error(exc):
+            return run_offline_schedule_request(request, "insufficient_quota")
+        raise
 
     # TODO 2: trace에서 create_schedule tool_result를 찾아 JSON으로 읽는다.
     # 모범 답안 2(강의자료 테스트용)

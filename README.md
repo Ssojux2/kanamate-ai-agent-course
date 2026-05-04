@@ -55,6 +55,14 @@ python week06.py
 
 각 파일을 실행하면 해당 주차 Gradio UI가 바로 열립니다.
 
+OpenAI quota가 없어서 1주차에서 `insufficient_quota`가 발생하면 `week01.py`는 자동으로 로컬 오프라인 결과를 보여줍니다. 실제 API 호출 없이 1주차 UI와 tool trace 모양만 확인하려면 아래처럼 실행할 수 있습니다.
+
+```bash
+KANAMATE_OFFLINE=1 python week01.py
+```
+
+실제 모델 호출 실습을 하려면 OpenAI 계정의 billing/credit과 `.env`의 `OPENAI_API_KEY`를 정상 설정해야 합니다.
+
 ## Validate
 
 ```bash
