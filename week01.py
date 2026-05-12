@@ -431,7 +431,7 @@ def create_demo() -> gr.Blocks:
                 request = gr.Textbox(
                     label="메시지",
                     show_label=False,
-                    placeholder="내일 10시에 민수와 회의 일정 잡아줘",
+                    value="내일 10시에 민수와 회의 일정 잡아줘",
                     scale=8,
                     min_width=0,
                 )

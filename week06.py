@@ -321,7 +321,7 @@ def run_practice_suite(
 
 
 def run_live_ui(student_request: str, member_replies: str, mode: str):
-    # Gradio Live Flow 탭의 callback이다.
+    # Gradio 채팅 화면에서 최종 실행 결과를 만드는 callback이다.
     try:
         result = run_live_flow(student_request, member_replies, mode)
         return (
@@ -365,7 +365,7 @@ def clear_chat():
 
 
 def run_suite_ui():
-    # Golden Scenario 탭은 자세한 trace 대신 통과 여부 요약만 보여준다.
+    # 시나리오 점검용 callback이다. 현재 기본 UI에서는 사용하지 않지만 수업 점검용으로 남겨둔다.
     try:
         return [
             {
@@ -383,76 +383,61 @@ def run_suite_ui():
 
 
 def create_demo() -> gr.Blocks:
-    # 최종 UI는 직접 실행 탭과 반복 검증 탭을 나눠 발표 흐름을 단순하게 한다.
+    # 최종 UI는 채팅 흐름만 바로 보이게 단순하게 구성한다.
     with gr.Blocks(title="KanaMate Week 6", fill_width=True, fill_height=True) as demo:
         with gr.Column(scale=1, min_width=0):
             gr.Markdown("# KanaMate Week 6")
-            with gr.Tab("Chat"):
-                history_state = gr.State([])
-                chatbot = gr.Chatbot(
-                    label="KanaMate",
-                    show_label=False,
-                    layout="bubble",
-                    height=540,
-                    scale=1,
-                    min_width=0,
-                    placeholder="",
-                )
-                with gr.Accordion("실행 옵션", open=False):
-                    # auto는 supervisor 판단을 보고, personal/group은 라우팅을 고정해 비교한다.
-                    mode = gr.Radio(["auto", "personal", "group"], value="auto", label="모드")
-                    member_replies = gr.Textbox(
-                        label="멤버 응답",
-                        lines=5,
-                        min_width=0,
-                        value="민수: 2026-04-24 15:00 가능\n지아: 2026-04-24 15:00 가능",
-                    )
-                with gr.Row(equal_height=True):
-                    request = gr.Textbox(
-                        label="메시지",
-                        show_label=False,
-                        placeholder="팀 멤버들과 발표 리허설 시간을 조율해줘",
-                        scale=8,
-                        min_width=0,
-                    )
-                    run_button = gr.Button("전송", variant="primary", scale=1, min_width=96)
-                    clear_button = gr.Button("초기화", scale=1, min_width=96)
-                with gr.Accordion("실행 상세", open=False):
-                    payload_json = gr.JSON(label="선택된 Agent와 delegate payload")
-                    trace_json = gr.JSON(label="Supervisor Trace")
-
-                chat_outputs = [chatbot, history_state, request, payload_json, trace_json]
-                user_outputs = [chatbot, history_state, request]
-                response_outputs = [chatbot, history_state, payload_json, trace_json]
-                run_button.click(
-                    append_user_message,
-                    inputs=[request, history_state],
-                    outputs=user_outputs,
-                    queue=False,
-                    show_progress="hidden",
-                ).then(run_live_chat_response, inputs=[history_state, member_replies, mode], outputs=response_outputs)
-                request.submit(
-                    append_user_message,
-                    inputs=[request, history_state],
-                    outputs=user_outputs,
-                    queue=False,
-                    show_progress="hidden",
-                ).then(run_live_chat_response, inputs=[history_state, member_replies, mode], outputs=response_outputs)
-                clear_button.click(clear_chat, outputs=chat_outputs)
-            with gr.Tab("Live Flow"):
+            history_state = gr.State([])
+            chatbot = gr.Chatbot(
+                label="KanaMate",
+                show_label=False,
+                layout="bubble",
+                height=540,
+                scale=1,
+                min_width=0,
+                placeholder="",
+            )
+            with gr.Accordion("실행 옵션", open=False):
                 # auto는 supervisor 판단을 보고, personal/group은 라우팅을 고정해 비교한다.
                 mode = gr.Radio(["auto", "personal", "group"], value="auto", label="모드")
-                request = gr.Textbox(label="요청", lines=3, value="팀 멤버들과 발표 리허설 시간을 조율해줘")
-                member_replies = gr.Textbox(label="멤버 응답", lines=4, value="민수: 2026-04-24 15:00 가능\n지아: 2026-04-24 15:00 가능")
-                run_button = gr.Button("실행", variant="primary")
-                answer = gr.Textbox(label="모델 최종 답변", lines=5)
+                member_replies = gr.Textbox(
+                    label="멤버 응답",
+                    lines=5,
+                    min_width=0,
+                    value="민수: 2026-04-24 15:00 가능\n지아: 2026-04-24 15:00 가능",
+                )
+            with gr.Row(equal_height=True):
+                request = gr.Textbox(
+                    label="메시지",
+                    show_label=False,
+                    value="팀 멤버들과 발표 리허설 시간을 조율해줘",
+                    scale=8,
+                    min_width=0,
+                )
+                run_button = gr.Button("전송", variant="primary", scale=1, min_width=96)
+                clear_button = gr.Button("초기화", scale=1, min_width=96)
+            with gr.Accordion("실행 상세", open=False):
                 payload_json = gr.JSON(label="선택된 Agent와 delegate payload")
                 trace_json = gr.JSON(label="Supervisor Trace")
-                run_button.click(run_live_ui, inputs=[request, member_replies, mode], outputs=[answer, payload_json, trace_json])
-            with gr.Tab("Golden Scenario"):
-                suite_button = gr.Button("시나리오 실행", variant="primary")
-                suite_json = gr.JSON(label="시나리오 결과")
-                suite_button.click(run_suite_ui, outputs=suite_json)
+
+        chat_outputs = [chatbot, history_state, request, payload_json, trace_json]
+        user_outputs = [chatbot, history_state, request]
+        response_outputs = [chatbot, history_state, payload_json, trace_json]
+        run_button.click(
+            append_user_message,
+            inputs=[request, history_state],
+            outputs=user_outputs,
+            queue=False,
+            show_progress="hidden",
+        ).then(run_live_chat_response, inputs=[history_state, member_replies, mode], outputs=response_outputs)
+        request.submit(
+            append_user_message,
+            inputs=[request, history_state],
+            outputs=user_outputs,
+            queue=False,
+            show_progress="hidden",
+        ).then(run_live_chat_response, inputs=[history_state, member_replies, mode], outputs=response_outputs)
+        clear_button.click(clear_chat, outputs=chat_outputs)
     return demo
 
 

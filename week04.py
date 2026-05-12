@@ -390,7 +390,7 @@ def create_demo() -> gr.Blocks:
                 request = gr.Textbox(
                     label="메시지",
                     show_label=False,
-                    placeholder="민수와 지아의 발표 리허설을 2026-04-24 15:00 일정으로 생성해줘",
+                    value="민수와 지아의 발표 리허설을 2026-04-24 15:00 일정으로 생성해줘",
                     scale=8,
                     min_width=0,
                 )

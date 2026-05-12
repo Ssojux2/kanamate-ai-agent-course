@@ -361,7 +361,7 @@ def create_demo() -> gr.Blocks:
                 request = gr.Textbox(
                     label="메시지",
                     show_label=False,
-                    placeholder="팀 회의 시간을 조율해줘",
+                    value="팀 회의 시간을 조율해줘",
                     scale=8,
                     min_width=0,
                 )

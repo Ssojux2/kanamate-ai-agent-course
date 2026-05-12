@@ -313,7 +313,7 @@ def create_demo() -> gr.Blocks:
                 question = gr.Textbox(
                     label="메시지",
                     show_label=False,
-                    placeholder="카나메이트 UI에서는 무엇을 함께 보여줘?",
+                    value="카나메이트 UI에서는 무엇을 함께 보여줘?",
                     scale=8,
                     min_width=0,
                 )

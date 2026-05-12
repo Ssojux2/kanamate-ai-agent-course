@@ -249,7 +249,7 @@ def create_demo() -> gr.Blocks:
                 request = gr.Textbox(
                     label="메시지",
                     show_label=False,
-                    placeholder="10시 졸업작품 발표가 있어. 발표 30분 전에 알려줘",
+                    value="10시 졸업작품 발표가 있어. 발표 30분 전에 알려줘",
                     scale=8,
                     min_width=0,
                 )

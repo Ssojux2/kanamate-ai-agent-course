@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "/Users/ssojux2/anaconda3/envs/langchain/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "jupyter.notebookFileRoot": "${workspaceFolder}"
+}
