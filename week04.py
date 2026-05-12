@@ -35,20 +35,24 @@ WEEK04_MCP_SERVER_PATH = PROJECT_ROOT / "week04_mcp_server.py"
 
 def load_project_env() -> None:
     """Load the repo-root .env next to this weekly script."""
+    # client 쪽 환경 변수와 서버 쪽 환경 변수를 같은 repo .env에서 읽는다.
     load_dotenv(ENV_PATH, override=True)
 
 
 def openai_model_name() -> str:
+    # MCP tool을 고르는 agent가 사용할 chat 모델 이름이다.
     load_project_env()
     return os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
 
 def openai_embedding_model_name() -> str:
+    # 4주차에서는 직접 쓰지 않지만 공통 helper를 유지해 주차 간 차이를 줄인다.
     load_project_env()
     return os.getenv("OPENAI_EMBEDDING_MODEL", DEFAULT_OPENAI_EMBEDDING_MODEL)
 
 
 def require_openai_api_key() -> str:
+    # MCP 서버 호출은 로컬이지만, 어떤 MCP tool을 부를지는 OpenAI 모델이 판단한다.
     load_project_env()
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -57,6 +61,7 @@ def require_openai_api_key() -> str:
 
 
 def make_model(max_tokens: int = 500) -> ChatOpenAI:
+    # temperature=0으로 두면 같은 입력에서 tool 선택이 비교적 안정적이다.
     require_openai_api_key()
     return ChatOpenAI(
         model=openai_model_name(),
@@ -66,14 +71,17 @@ def make_model(max_tokens: int = 500) -> ChatOpenAI:
 
 
 def show_json(value: Any) -> None:
+    # MCP payload와 SQLite row를 사람이 비교하기 쉬운 JSON 형태로 출력한다.
     print(json.dumps(value, ensure_ascii=False, indent=2, default=str))
 
 
 def final_text(agent_result: dict[str, Any]) -> str:
+    # 학생 발표에서는 최종 문장보다 아래 trace/payload를 더 중요하게 본다.
     return agent_result["messages"][-1].content
 
 
 def extract_tool_trace(agent_result: dict[str, Any]) -> list[dict[str, Any]]:
+    # MCP tool도 LangChain agent 안에서는 일반 tool_call/tool_result처럼 관찰된다.
     trace: list[dict[str, Any]] = []
     for message in agent_result.get("messages", []):
         for call in getattr(message, "tool_calls", []) or []:
@@ -109,12 +117,14 @@ def week04_mcp_port() -> int:
     load_project_env()
     raw_port = os.getenv("KANAMATE_WEEK04_MCP_PORT", str(DEFAULT_WEEK04_MCP_PORT))
     try:
+        # 환경 변수는 문자열이므로 HTTP client/server에 쓰기 전에 정수로 바꾼다.
         return int(raw_port)
     except ValueError as exc:
         raise RuntimeError("KANAMATE_WEEK04_MCP_PORT는 정수여야 합니다.") from exc
 
 
 def week04_mcp_url() -> str:
+    # MultiServerMCPClient가 접속할 streamable-http endpoint 주소다.
     return f"http://{week04_mcp_host()}:{week04_mcp_port()}/mcp"
 
 
@@ -128,6 +138,7 @@ def resolve_calendar_db_path(db_path: str | pathlib.Path | None = None) -> pathl
 def initialize_calendar_db(db_path: str | pathlib.Path | None = None, reset: bool = False) -> pathlib.Path:
     """Create the teaching SQLite calendar table and optionally clear old rows."""
     target_path = resolve_calendar_db_path(db_path)
+    # tmp 폴더가 아직 없어도 SQLite 파일을 만들 수 있게 부모 폴더를 먼저 만든다.
     target_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(target_path) as conn:
         # event_id를 unique로 두어 같은 날짜/시간 실습을 다시 실행해도 row가 중복되지 않는다.
@@ -145,6 +156,7 @@ def initialize_calendar_db(db_path: str | pathlib.Path | None = None, reset: boo
             """
         )
         if reset:
+            # reset=True는 실습을 처음부터 다시 보기 위해 기존 row를 지우는 옵션이다.
             conn.execute("DELETE FROM calendar_events")
         conn.commit()
     return target_path
@@ -155,6 +167,7 @@ def load_saved_calendar_events(db_path: str | pathlib.Path | None = None) -> lis
     # MCP 서버가 저장한 결과를 학생이 바로 비교할 수 있도록 dict 리스트로 변환한다.
     target_path = initialize_calendar_db(db_path)
     with sqlite3.connect(target_path) as conn:
+        # sqlite3.Row를 쓰면 row["event_id"]처럼 컬럼명으로 읽을 수 있다.
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
@@ -170,6 +183,7 @@ def load_saved_calendar_events(db_path: str | pathlib.Path | None = None) -> lis
             "date": row["date"],
             "start_time": row["start_time"],
             "members_json": row["members_json"],
+            # DB에는 문자열로 저장하지만, UI에서는 list로도 바로 보이게 역직렬화한다.
             "members": json.loads(row["members_json"]),
             "status": row["status"],
         }
@@ -189,6 +203,7 @@ def run_async(coro):
 
     def runner() -> None:
         # Jupyter는 이미 event loop가 있어 새 thread에서 async MCP 호출을 실행한다.
+        # 같은 thread에서 asyncio.run을 다시 호출하면 오류가 나므로 thread를 분리한다.
         try:
             box["value"] = asyncio.run(coro)
         except Exception as exc:
@@ -222,6 +237,7 @@ def make_calendar_mcp_client(server_url: str | None = None) -> MultiServerMCPCli
     return MultiServerMCPClient(
         {
             "calendar": {
+                # "calendar"는 이 client 안에서 서버를 구분하는 별칭이다.
                 "url": target_url,
                 "transport": "streamable_http",
             }
@@ -234,6 +250,7 @@ def load_calendar_mcp_tools(server_url: str | None = None) -> list[Any]:
     target_url = server_url or week04_mcp_url()
     client = make_calendar_mcp_client(target_url)
     try:
+        # 서버에서 노출한 calendar_check_availability/calendar_create_event tool을 읽는다.
         return run_async(client.get_tools(server_name="calendar"))
     except Exception as exc:
         raise RuntimeError(
@@ -254,8 +271,10 @@ def parse_mcp_tool_result(content: Any) -> dict[str, Any]:
     """Convert MCP content blocks or JSON strings into a dict payload."""
     # MCP adapter/버전에 따라 결과가 dict, JSON string, content block으로 올 수 있다.
     if isinstance(content, dict):
+        # 이미 dict이면 추가 변환 없이 그대로 payload로 사용한다.
         return content
     if isinstance(content, list):
+        # content block 리스트인 경우 text block을 찾아 JSON으로 읽는다.
         for item in content:
             if isinstance(item, dict) and item.get("type") == "text":
                 return json.loads(item["text"])
@@ -263,29 +282,9 @@ def parse_mcp_tool_result(content: Any) -> dict[str, Any]:
                 return json.loads(item.text)
         raise ValueError(f"MCP text content를 찾지 못했습니다: {content}")
     if isinstance(content, str):
+        # 일부 adapter는 tool 결과를 JSON 문자열로 바로 넘긴다.
         return json.loads(content)
     raise TypeError(f"지원하지 않는 MCP tool result 형식입니다: {type(content)}")
-
-
-def build_week04_agent(mcp_tools: list[Any], max_tokens: int = 700):
-    # Agent에는 Python 함수 tool이 아니라 MCP 서버에서 읽어온 tool 목록을 넣는다.
-    return create_agent(
-        model=make_model(max_tokens),
-        tools=mcp_tools,
-        system_prompt=(
-            "가능 시간 조회는 calendar_check_availability를, 일정 생성이나 확정 요청은 "
-            "calendar_create_event MCP 도구를 호출한 뒤 답한다."
-        ),
-    )
-
-
-def created_event_from_trace(trace: list[dict[str, Any]]) -> dict[str, Any] | None:
-    # TODO 문제 1: trace에서 calendar_create_event tool_result를 찾아 MCP payload를 꺼낸다.
-    # 모범 답안 1:
-    for event in trace:
-        if event.get("event") == "tool_result" and event.get("tool_name") == "calendar_create_event":
-            return parse_mcp_tool_result(event["content"])
-    return None
 
 
 def run_mcp_event_request(
@@ -299,23 +298,37 @@ def run_mcp_event_request(
     # TODO 문제 2: 실행 중인 MCP 서버에서 tool 목록을 로드한다.
     # 모범 답안 2:
     if agent is None:
+        # include_create_event=True는 DB를 초기화해 같은 실습을 반복하기 쉽게 한다.
         write_calendar_mcp_server(include_create_event=True, db_path=db_path)
         mcp_tools = mcp_tools or load_calendar_mcp_tools()
 
     # TODO 문제 3: MCP tool로 agent를 만들고 async request를 실행한다.
     # 모범 답안 3:
-    mcp_agent = agent or build_week04_agent(mcp_tools or [])
+    mcp_agent = agent or create_agent(
+        model=make_model(700),
+        tools=mcp_tools or [],
+        system_prompt=(
+            "가능 시간 조회는 calendar_check_availability를, 일정 생성이나 확정 요청은 "
+            "calendar_create_event MCP 도구를 호출한 뒤 답한다."
+        ),
+    )
     # MCP StructuredTool은 sync invoke를 지원하지 않으므로 agent도 ainvoke로 실행한다.
     result = run_async(mcp_agent.ainvoke({"messages": [{"role": "user", "content": request}]}))
     trace = extract_tool_trace(result)
 
     # TODO 문제 4: trace에서 MCP 서버 payload를 꺼낸다.
     # 모범 답안 4:
-    created_event = created_event_from_trace(trace)
+    created_event = None
+    for event in trace:
+        # 일정 생성 여부는 tool_call이 아니라 서버가 돌려준 tool_result payload로 확인한다.
+        if event.get("event") == "tool_result" and event.get("tool_name") == "calendar_create_event":
+            created_event = parse_mcp_tool_result(event["content"])
+            break
 
     # TODO 문제 5: 같은 요청이 SQLite row에도 저장됐는지 함께 보여준다.
     # 모범 답안 5:
     return {
+        # created_event는 MCP 응답, saved_events는 DB에서 다시 읽은 검증 결과다.
         "answer": final_text(result),
         "trace": trace,
         "created_event": created_event,
@@ -332,17 +345,80 @@ def run_ui(request: str):
         return str(exc), {}, [], []
 
 
+def append_user_message(request: str, history: list[dict[str, str]] | None):
+    # 빠른 callback: MCP 서버/agent 실행 전에 사용자 메시지를 먼저 화면에 올린다.
+    history = list(history or [])
+    cleaned_request = request.strip()
+    if not cleaned_request:
+        return history, history, ""
+    history.append({"role": "user", "content": cleaned_request})
+    return history, history, ""
+
+
+def run_chat_response(history: list[dict[str, str]] | None):
+    # 느린 callback: 마지막 사용자 메시지로 MCP 요청을 처리하고 assistant 답변을 붙인다.
+    history = list(history or [])
+    if not history or history[-1].get("role") != "user":
+        return history, history, {}, [], []
+
+    request = history[-1]["content"]
+    answer, created_event, saved_events, trace = run_ui(request)
+    history.append({"role": "assistant", "content": answer})
+    return history, history, created_event, saved_events, trace
+
+
+def clear_chat():
+    return [], [], "", {}, [], []
+
+
 def create_demo() -> gr.Blocks:
     # 서버 연결은 버튼을 누를 때만 일어나므로 create_demo 자체는 가볍게 import된다.
-    with gr.Blocks(title="KanaMate Week 4") as demo:
-        gr.Markdown("# Week 4 - Real MCP Server")
-        request = gr.Textbox(label="요청", lines=3, value="민수와 지아의 발표 리허설을 2026-04-24 15:00 일정으로 생성해줘")
-        run_button = gr.Button("실행", variant="primary")
-        answer = gr.Textbox(label="모델 최종 답변", lines=5)
-        event_json = gr.JSON(label="MCP 서버 생성 payload")
-        saved_json = gr.JSON(label="SQLite 저장 row")
-        trace_json = gr.JSON(label="MCP Tool Trace")
-        run_button.click(run_ui, inputs=request, outputs=[answer, event_json, saved_json, trace_json])
+    with gr.Blocks(title="KanaMate Week 4", fill_width=True, fill_height=True) as demo:
+        with gr.Column(scale=1, min_width=0):
+            gr.Markdown("# KanaMate Week 4")
+            history_state = gr.State([])
+            chatbot = gr.Chatbot(
+                label="KanaMate",
+                show_label=False,
+                layout="bubble",
+                height=560,
+                scale=1,
+                min_width=0,
+                placeholder="",
+            )
+            with gr.Row(equal_height=True):
+                request = gr.Textbox(
+                    label="메시지",
+                    show_label=False,
+                    placeholder="민수와 지아의 발표 리허설을 2026-04-24 15:00 일정으로 생성해줘",
+                    scale=8,
+                    min_width=0,
+                )
+                run_button = gr.Button("전송", variant="primary", scale=1, min_width=96)
+                clear_button = gr.Button("초기화", scale=1, min_width=96)
+            with gr.Accordion("실행 상세", open=False):
+                event_json = gr.JSON(label="MCP 서버 생성 payload")
+                saved_json = gr.JSON(label="SQLite 저장 row")
+                trace_json = gr.JSON(label="MCP Tool Trace")
+
+        chat_outputs = [chatbot, history_state, request, event_json, saved_json, trace_json]
+        user_outputs = [chatbot, history_state, request]
+        response_outputs = [chatbot, history_state, event_json, saved_json, trace_json]
+        run_button.click(
+            append_user_message,
+            inputs=[request, history_state],
+            outputs=user_outputs,
+            queue=False,
+            show_progress="hidden",
+        ).then(run_chat_response, inputs=history_state, outputs=response_outputs)
+        request.submit(
+            append_user_message,
+            inputs=[request, history_state],
+            outputs=user_outputs,
+            queue=False,
+            show_progress="hidden",
+        ).then(run_chat_response, inputs=history_state, outputs=response_outputs)
+        clear_button.click(clear_chat, outputs=chat_outputs)
     return demo
 
 
