@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import sqlite3
 from pathlib import Path
 from typing import Any, Callable
 
@@ -18,6 +20,17 @@ DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 # 6주차는 앞 주차 개념을 합쳐 "설명 가능한 최종 데모"로 만든다.
 PROJECT_ROOT = Path(__file__).resolve().parent
 ENV_PATH = PROJECT_ROOT / ".env"
+DEFAULT_WEEK06_DB_PATH = PROJECT_ROOT / "tmp" / "week06_memory.sqlite3"
+SAVED_MEMORIES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS saved_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    memory_id TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source TEXT NOT NULL,
+    status TEXT NOT NULL
+)
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +78,35 @@ def make_model(max_tokens: int = 500) -> ChatOpenAI:
 def show_json(value: Any) -> None:
     # selected_agent, delegate_payload, trace를 발표용으로 읽기 좋게 출력한다.
     print(json.dumps(value, ensure_ascii=False, indent=2, default=str))
+
+
+def load_saved_memories(db_path: str | Path | None = None) -> list[dict[str, Any]]:
+    """Return saved Week 6 memory rows in a JSON-friendly shape."""
+    load_project_env()
+    target_path = Path(db_path or os.getenv("KANAMATE_WEEK06_DB_PATH") or DEFAULT_WEEK06_DB_PATH).resolve()
+    if not target_path.exists():
+        return []
+    with sqlite3.connect(target_path) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.execute(SAVED_MEMORIES_TABLE_SQL)
+        rows = conn.execute(
+            """
+            SELECT memory_id, title, content, source, status
+            FROM saved_memories
+            ORDER BY id
+            """
+        ).fetchall()
+    return [
+        {
+            "memory_id": row["memory_id"],
+            "title": row["title"],
+            "content": row["content"],
+            "source": row["source"],
+            "status": row["status"],
+            "sqlite_path": str(target_path),
+        }
+        for row in rows
+    ]
 
 
 def final_text(agent_result: dict[str, Any]) -> str:
@@ -133,8 +175,43 @@ def memory_save(title: str, content: str) -> str:
     """Save a user memory."""
     # TODO 문제 1: 6주차 Nana가 사용할 메모 저장 tool payload를 만든다.
     # 모범 답안 1:
-    # 6주차 Nana는 일정뿐 아니라 메모 저장도 처리하므로 tool 함수에서 바로 payload를 만든다.
-    return json.dumps({"ok": True, "memory": {"title": title, "content": content}}, ensure_ascii=False)
+    # tool 자체가 구조화된 입력을 SQLite row로 남기고, 저장된 row를 payload로 돌려준다.
+    load_dotenv(ENV_PATH, override=True)
+    target_path = Path(os.getenv("KANAMATE_WEEK06_DB_PATH") or DEFAULT_WEEK06_DB_PATH).resolve()
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    memory_text = f"{title}\n{content}"
+    memory_id = f"memory-{hashlib.sha256(memory_text.encode('utf-8')).hexdigest()[:12]}"
+    saved_memory = {
+        "memory_id": memory_id,
+        "title": title,
+        "content": content,
+        "source": "week06.memory_save",
+        "status": "saved",
+        "sqlite_path": str(target_path),
+    }
+    with sqlite3.connect(target_path) as conn:
+        conn.execute(SAVED_MEMORIES_TABLE_SQL)
+        conn.execute(
+            """
+            INSERT INTO saved_memories
+                (memory_id, title, content, source, status)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(memory_id) DO UPDATE SET
+                title = excluded.title,
+                content = excluded.content,
+                source = excluded.source,
+                status = excluded.status
+            """,
+            (
+                saved_memory["memory_id"],
+                saved_memory["title"],
+                saved_memory["content"],
+                saved_memory["source"],
+                saved_memory["status"],
+            ),
+        )
+        conn.commit()
+    return json.dumps({"ok": True, "memory": saved_memory}, ensure_ascii=False)
 
 
 def delegated_agent_from_trace(agent_result: dict[str, Any]) -> str:
@@ -170,18 +247,46 @@ def week06_delegate_to_nana(request: str) -> str:
     # TODO 문제 2: Nana 위임 tool 안에서 개인 일정/메모 tool을 가진 sub-agent를 바로 실행한다.
     # 모범 답안 2:
     # supervisor가 Nana에게 위임하면, Nana 내부 tool trace까지 payload로 되돌린다.
+    load_dotenv(ENV_PATH, override=True)
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(".env 파일에 OPENAI_API_KEY를 설정한 뒤 다시 실행하세요.")
     nana_agent = create_agent(
-        model=make_model(700),
+        model=ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+            temperature=0,
+            max_completion_tokens=700,
+        ),
         tools=[personal_create_schedule, memory_save],
         system_prompt=(
             "너는 나나다. 오늘은 2026-04-23이다. 상대 날짜는 이 날짜 기준으로 YYYY-MM-DD로 바꾼다. "
-            "개인 일정이나 메모 요청에 필요한 도구를 호출한다."
+            "개인 일정은 personal_create_schedule 도구를 호출한다. "
+            "사용자가 기억, 메모, 저장을 요청하거나 중요한 장소/선호/프로젝트 정보를 알려주면 "
+            "memory_save 도구를 호출한다."
         ),
     )
     agent_result = nana_agent.invoke({"messages": [{"role": "user", "content": request}]})
+    trace: list[dict[str, Any]] = []
+    for message in agent_result.get("messages", []):
+        for call in getattr(message, "tool_calls", []) or []:
+            trace.append(
+                {
+                    "event": "tool_call",
+                    "tool_name": call.get("name"),
+                    "arguments": call.get("args", {}),
+                }
+            )
+        if getattr(message, "type", None) == "tool":
+            trace.append(
+                {
+                    "event": "tool_result",
+                    "tool_name": getattr(message, "name", None),
+                    "content": message.content,
+                }
+            )
     return json.dumps(
         # 이 payload가 supervisor tool_result content로 들어간다.
-        {"agent": "nana", "answer": final_text(agent_result), "trace": extract_tool_trace(agent_result)},
+        {"agent": "nana", "answer": agent_result["messages"][-1].content, "trace": trace},
         ensure_ascii=False,
     )
 
@@ -192,16 +297,42 @@ def week06_delegate_to_kana(request: str, member_replies: str) -> str:
     # TODO 문제 3: Kana 위임 tool 안에서 그룹 일정 확정 tool을 가진 sub-agent를 바로 실행한다.
     # 모범 답안 3:
     # 그룹 모드에서는 멤버 응답이 빠지면 Kana가 판단할 근거가 부족하다.
+    load_dotenv(ENV_PATH, override=True)
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(".env 파일에 OPENAI_API_KEY를 설정한 뒤 다시 실행하세요.")
     message = f"요청: {request}\n그룹 응답:\n{member_replies}"
     kana_agent = create_agent(
-        model=make_model(800),
+        model=ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+            temperature=0,
+            max_completion_tokens=800,
+        ),
         tools=[group_confirm_slot],
         system_prompt="너는 카나다. 그룹 응답에서 공통 가능 시간을 찾으면 group_confirm_slot 도구를 호출한다.",
     )
     agent_result = kana_agent.invoke({"messages": [{"role": "user", "content": message}]})
+    trace: list[dict[str, Any]] = []
+    for message in agent_result.get("messages", []):
+        for call in getattr(message, "tool_calls", []) or []:
+            trace.append(
+                {
+                    "event": "tool_call",
+                    "tool_name": call.get("name"),
+                    "arguments": call.get("args", {}),
+                }
+            )
+        if getattr(message, "type", None) == "tool":
+            trace.append(
+                {
+                    "event": "tool_result",
+                    "tool_name": getattr(message, "name", None),
+                    "content": message.content,
+                }
+            )
     return json.dumps(
         # request와 member_replies를 합친 입력으로 Kana가 어떤 tool을 불렀는지 trace에 남긴다.
-        {"agent": "kana", "answer": final_text(agent_result), "trace": extract_tool_trace(agent_result)},
+        {"agent": "kana", "answer": agent_result["messages"][-1].content, "trace": trace},
         ensure_ascii=False,
     )
 
@@ -224,7 +355,7 @@ def make_supervisor(mode: str = "auto"):
         # 모범 답안 6:
         tools = [week06_delegate_to_nana, week06_delegate_to_kana]
         prompt = (
-            "너는 카나메이트 supervisor다. 개인 일정/메모 요청은 nana_agent tool을 호출하고, "
+            "너는 카나메이트 supervisor다. 개인 일정/메모 저장 요청은 nana_agent tool을 호출하고, "
             "그룹 일정 조율 요청은 kana_agent tool을 호출한다. 직접 처리하지 말고 반드시 "
             "적절한 sub-agent tool을 호출한다."
         )
@@ -253,6 +384,7 @@ def run_live_flow(student_request: str, member_replies: str = "", mode: str = "a
         "answer": final_text(supervisor_result),
         "trace": extract_tool_trace(supervisor_result),
         "delegate_payload": delegated_payload_from_trace(supervisor_result),
+        "saved_memories": load_saved_memories(),
     }
 
 
@@ -299,6 +431,27 @@ def run_practice_suite(
         # 검증 흐름 2: delegate_payload 내부 trace에서 실제 sub-agent tool 이름을 모은다.
         # 내부 tool 이름을 봐야 "agent 선택"뿐 아니라 "실제 업무 처리"까지 확인된다.
         inner_tool_names = inner_tool_names_from_payload(result["delegate_payload"])
+        saved_memory_ids = []
+        for event in result["delegate_payload"].get("trace", []):
+            if event.get("event") != "tool_result" or event.get("tool_name") != "memory_save":
+                continue
+            try:
+                tool_payload = json.loads(event.get("content", "{}"))
+            except json.JSONDecodeError:
+                continue
+            memory_id = tool_payload.get("memory", {}).get("memory_id")
+            if memory_id:
+                saved_memory_ids.append(memory_id)
+        sqlite_memory_ids = {
+            memory["memory_id"]
+            for memory in result.get("saved_memories", [])
+        }
+        memory_saved_to_sqlite = (
+            bool(saved_memory_ids)
+            and all(memory_id in sqlite_memory_ids for memory_id in saved_memory_ids)
+            if case["expected_inner_tool"] == "memory_save"
+            else True
+        )
 
         # 검증 흐름 3: 기대 agent/tool과 실제 결과를 한 report에 담는다.
         reports.append(
@@ -308,13 +461,17 @@ def run_practice_suite(
                 "selected_agent": result["selected_agent"],
                 "expected_inner_tool": case["expected_inner_tool"],
                 "inner_tool_names": inner_tool_names,
+                "saved_memory_ids": saved_memory_ids,
+                "memory_saved_to_sqlite": memory_saved_to_sqlite,
                 "passed": (
                     case["expected_agent"] == result["selected_agent"]
                     and case["expected_inner_tool"] in inner_tool_names
+                    and memory_saved_to_sqlite
                 ),
                 "answer": result["answer"],
                 "trace": result["trace"],
                 "delegate_payload": result["delegate_payload"],
+                "saved_memories": result.get("saved_memories", []),
             }
         )
     return reports
@@ -327,7 +484,11 @@ def run_live_ui(student_request: str, member_replies: str, mode: str):
         return (
             # 화면 출력 순서: 자연어 답변, 내부 payload, supervisor trace.
             result["answer"],
-            {"selected_agent": result["selected_agent"], "delegate_payload": result["delegate_payload"]},
+            {
+                "selected_agent": result["selected_agent"],
+                "delegate_payload": result["delegate_payload"],
+                "saved_memories": result["saved_memories"],
+            },
             result["trace"],
         )
     except Exception as exc:
@@ -374,6 +535,8 @@ def run_suite_ui():
                 "selected_agent": report["selected_agent"],
                 "expected_inner_tool": report["expected_inner_tool"],
                 "inner_tool_names": report["inner_tool_names"],
+                "saved_memory_ids": report["saved_memory_ids"],
+                "memory_saved_to_sqlite": report["memory_saved_to_sqlite"],
                 "passed": report["passed"],
             }
             for report in run_practice_suite(practice_cases)
@@ -417,7 +580,7 @@ def create_demo() -> gr.Blocks:
                 run_button = gr.Button("전송", variant="primary", scale=1, min_width=96)
                 clear_button = gr.Button("초기화", scale=1, min_width=96)
             with gr.Accordion("실행 상세", open=False):
-                payload_json = gr.JSON(label="선택된 Agent와 delegate payload")
+                payload_json = gr.JSON(label="선택된 Agent, delegate payload, SQLite 저장 메모")
                 trace_json = gr.JSON(label="Supervisor Trace")
 
         chat_outputs = [chatbot, history_state, request, payload_json, trace_json]

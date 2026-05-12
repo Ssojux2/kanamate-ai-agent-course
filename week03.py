@@ -216,10 +216,55 @@ def search_memory(query: str, top_k: int = 2) -> str:
     """Search student memory with ChromaDB."""
     # TODO 문제 4: Agentic RAG에서 사용할 검색 tool을 단일 함수로 등록한다.
     # 모범 답안 4:
-    # tool이 호출되면 별도 wrapper 없이 현재 Chroma collection을 바로 검색한다.
-    target_collection = get_memory_collection()
+    # tool이 호출되면 필요한 collection 준비와 검색을 tool 함수 안에서 바로 처리한다.
+    global memory_collection, memory_persist_dir
+    if memory_collection is None:
+        load_dotenv(ENV_PATH, override=True)
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(".env 파일에 OPENAI_API_KEY를 설정한 뒤 다시 실행하세요.")
+        memory_persist_dir = DEFAULT_WEEK03_CHROMA_DIR.resolve()
+        memory_persist_dir.mkdir(parents=True, exist_ok=True)
+        embedding_function = OpenAIEmbeddingFunction(
+            api_key=api_key,
+            model_name=os.getenv("OPENAI_EMBEDDING_MODEL", DEFAULT_OPENAI_EMBEDDING_MODEL),
+        )
+        client = chromadb.PersistentClient(
+            path=str(memory_persist_dir),
+            settings=Settings(anonymized_telemetry=False),
+        )
+        try:
+            client.delete_collection(DEFAULT_WEEK03_COLLECTION_NAME)
+        except Exception as exc:
+            if "does not exist" not in str(exc).lower():
+                raise
+        memory_collection = client.create_collection(
+            name=DEFAULT_WEEK03_COLLECTION_NAME,
+            embedding_function=embedding_function,
+        )
+        memory_collection.add(
+            ids=[f"memory-{index + 1}" for index in range(len(DEFAULT_STUDENT_MEMORIES))],
+            documents=DEFAULT_STUDENT_MEMORIES,
+            metadatas=[
+                {"source": "student_input", "order": index + 1}
+                for index, _ in enumerate(DEFAULT_STUDENT_MEMORIES)
+            ],
+        )
+    target_collection = memory_collection
     found = target_collection.query(query_texts=[query], n_results=top_k)
-    hits = format_chroma_results(found)
+    ids = found.get("ids", [[]])[0]
+    documents = found.get("documents", [[]])[0]
+    distances = found.get("distances", [[]])[0]
+    metadatas = found.get("metadatas", [[]])[0]
+    hits = [
+        {
+            "id": ids[index],
+            "content": documents[index],
+            "distance": distances[index],
+            "metadata": metadatas[index] if index < len(metadatas) and metadatas[index] else {},
+        }
+        for index in range(len(ids))
+    ]
     # TODO 문제 5: 검색 결과 hits를 JSON 문자열 payload로 반환한다.
     # 모범 답안 5:
     # agent trace에서 이 JSON 문자열을 보면 어떤 근거가 모델에게 전달됐는지 알 수 있다.

@@ -72,6 +72,7 @@ jupyter notebook
 - `payload`: 외부 도구나 MCP 서버가 실제로 돌려준 실행 결과인지
 - `hits`와 `distance`: ChromaDB가 검색한 기억 후보와 근거 점수
 - `saved_events`: MCP 서버가 SQLite에 실제로 저장한 일정 row
+- `saved_memories`: Nana가 `memory_save`로 SQLite에 실제로 저장한 메모 row
 - `selected_agent`: supervisor가 어떤 sub-agent에게 위임했는지
 - `inner_tool_names`: sub-agent 내부에서 어떤 tool이 실행됐는지
 
@@ -224,4 +225,4 @@ PY
 - ChromaDB collection에 메모를 저장하고 RAG/Agentic RAG의 차이를 예시로 말한다.
 - MCP tool이 Python 함수 tool과 어떻게 다른지, MCP payload와 SQLite 저장 row를 근거로 설명한다.
 - supervisor와 sub-agent 라우팅 결과를 trace로 검증한다.
-- KanaMate 최종 WebUI에서 입력, 선택 agent, 내부 tool, 최종 답변, 실패 가능성을 설명한다.
+- KanaMate 최종 WebUI에서 입력, 선택 agent, 내부 tool, SQLite 저장 메모, 최종 답변, 실패 가능성을 설명한다.

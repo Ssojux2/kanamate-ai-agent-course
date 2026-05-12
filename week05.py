@@ -144,8 +144,16 @@ def week05_delegate_to_nana(request: str) -> str:
     # TODO 문제 3: supervisor가 호출할 Nana 위임 tool 안에서 sub-agent를 바로 실행한다.
     # 모범 답안 3:
     # supervisor 입장에서는 이 함수 전체가 하나의 tool 호출처럼 보인다.
+    load_dotenv(ENV_PATH, override=True)
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(".env 파일에 OPENAI_API_KEY를 설정한 뒤 다시 실행하세요.")
     nana_agent = create_agent(
-        model=make_model(600),
+        model=ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+            temperature=0,
+            max_completion_tokens=600,
+        ),
         tools=[personal_create_schedule],
         system_prompt=(
             "너는 개인 메이트 나나다. 오늘은 2026-04-23이다. "
@@ -154,9 +162,27 @@ def week05_delegate_to_nana(request: str) -> str:
         ),
     )
     agent_result = nana_agent.invoke({"messages": [{"role": "user", "content": request}]})
+    trace: list[dict[str, Any]] = []
+    for message in agent_result.get("messages", []):
+        for call in getattr(message, "tool_calls", []) or []:
+            trace.append(
+                {
+                    "event": "tool_call",
+                    "tool_name": call.get("name"),
+                    "arguments": call.get("args", {}),
+                }
+            )
+        if getattr(message, "type", None) == "tool":
+            trace.append(
+                {
+                    "event": "tool_result",
+                    "tool_name": getattr(message, "name", None),
+                    "content": message.content,
+                }
+            )
     return json.dumps(
         # trace를 payload에 넣어야 supervisor 바깥에서도 sub-agent 내부 실행을 볼 수 있다.
-        {"agent": "nana", "answer": final_text(agent_result), "trace": extract_tool_trace(agent_result)},
+        {"agent": "nana", "answer": agent_result["messages"][-1].content, "trace": trace},
         ensure_ascii=False,
     )
 
@@ -167,16 +193,42 @@ def week05_delegate_to_kana(request: str, member_replies: str) -> str:
     # TODO 문제 4: supervisor가 호출할 Kana 위임 tool 안에서 sub-agent를 바로 실행한다.
     # 모범 답안 4:
     # 그룹 요청은 원래 요청과 멤버 응답을 함께 sub-agent에게 넘겨야 한다.
+    load_dotenv(ENV_PATH, override=True)
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(".env 파일에 OPENAI_API_KEY를 설정한 뒤 다시 실행하세요.")
     message = f"요청: {request}\n멤버 응답:\n{member_replies}"
     kana_agent = create_agent(
-        model=make_model(700),
+        model=ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+            temperature=0,
+            max_completion_tokens=700,
+        ),
         tools=[group_confirm_slot],
         system_prompt="너는 그룹 메이트 카나다. 멤버 응답에서 모두 가능한 시간을 찾으면 group_confirm_slot 도구를 호출한다.",
     )
     agent_result = kana_agent.invoke({"messages": [{"role": "user", "content": message}]})
+    trace: list[dict[str, Any]] = []
+    for message in agent_result.get("messages", []):
+        for call in getattr(message, "tool_calls", []) or []:
+            trace.append(
+                {
+                    "event": "tool_call",
+                    "tool_name": call.get("name"),
+                    "arguments": call.get("args", {}),
+                }
+            )
+        if getattr(message, "type", None) == "tool":
+            trace.append(
+                {
+                    "event": "tool_result",
+                    "tool_name": getattr(message, "name", None),
+                    "content": message.content,
+                }
+            )
     return json.dumps(
         # supervisor tool_result 안의 trace가 "Kana가 실제 업무 tool을 불렀는가"의 근거다.
-        {"agent": "kana", "answer": final_text(agent_result), "trace": extract_tool_trace(agent_result)},
+        {"agent": "kana", "answer": agent_result["messages"][-1].content, "trace": trace},
         ensure_ascii=False,
     )
 

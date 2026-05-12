@@ -106,8 +106,21 @@ def calendar_create_event(title: str, date: str, start_time: str, members: list[
     event_id = f"event-{date}-{start_time}".replace(":", "")
     # SQLite에는 list를 직접 넣을 수 없으므로 JSON 문자열로 저장한다.
     members_json = json.dumps(members, ensure_ascii=False)
-    ensure_calendar_db()
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS calendar_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                date TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                members_json TEXT NOT NULL,
+                status TEXT NOT NULL
+            )
+            """
+        )
         # TODO 문제 3: MCP tool 실행 결과를 SQLite calendar_events table에 저장한다.
         # 모범 답안 3:
         # INSERT OR REPLACE라 같은 실습을 반복해도 마지막 결과가 남는다.
