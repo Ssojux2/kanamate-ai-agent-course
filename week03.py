@@ -1,10 +1,9 @@
-"""Week 3 KanaMate assignment and Gradio UI."""
+"""Week 3 KanaMate Python practice and Gradio UI."""
 
 from __future__ import annotations
 
 import json
 import os
-import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -19,8 +18,11 @@ from langchain_openai import ChatOpenAI
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
+# ChromaDB 파일도 repo 아래 tmp에 두어 실습 후 상태를 확인하기 쉽게 한다.
 PROJECT_ROOT = Path(__file__).resolve().parent
 ENV_PATH = PROJECT_ROOT / ".env"
+DEFAULT_WEEK03_CHROMA_DIR = PROJECT_ROOT / "tmp" / "week03_chroma"
+DEFAULT_WEEK03_COLLECTION_NAME = "kanamate_week3_memories"
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +32,7 @@ ENV_PATH = PROJECT_ROOT / ".env"
 
 def load_project_env() -> None:
     """Load the repo-root .env next to this weekly script."""
-    load_dotenv(ENV_PATH, override=False)
+    load_dotenv(ENV_PATH, override=True)
 
 
 def openai_model_name() -> str:
@@ -52,6 +54,7 @@ def require_openai_api_key() -> str:
 
 
 def make_model(max_tokens: int = 500) -> ChatOpenAI:
+    # Agent 답변용 모델과 embedding 모델은 .env에서 따로 바꿀 수 있다.
     require_openai_api_key()
     return ChatOpenAI(
         model=openai_model_name(),
@@ -69,6 +72,7 @@ def final_text(agent_result: dict[str, Any]) -> str:
 
 
 def extract_tool_trace(agent_result: dict[str, Any]) -> list[dict[str, Any]]:
+    # Agentic RAG에서는 "검색 tool을 불렀는가"가 핵심 관찰 포인트다.
     trace: list[dict[str, Any]] = []
     for message in agent_result.get("messages", []):
         for call in getattr(message, "tool_calls", []) or []:
@@ -99,29 +103,45 @@ DEFAULT_STUDENT_MEMORIES = [
     "카나메이트 UI에서는 채팅 답변과 tool trace를 함께 보여준다.",
 ]
 memory_collection: Any | None = None
+# 현재 실습에서 사용 중인 Chroma collection 위치를 UI에 보여주기 위해 보관한다.
+memory_persist_dir = DEFAULT_WEEK03_CHROMA_DIR
 
 
-def reset_memory_collection(memories: list[str] | None = None) -> Any:
-    global memory_collection
+def reset_memory_collection(memories: list[str] | None = None, persist_dir: str | Path | None = None) -> Any:
+    # 매 실습마다 collection을 새로 만들어 "입력 메모 -> 검색 결과" 흐름을 깨끗하게 본다.
+    global memory_collection, memory_persist_dir
     source_memories = memories or DEFAULT_STUDENT_MEMORIES
+    target_dir = Path(persist_dir or DEFAULT_WEEK03_CHROMA_DIR).resolve()
+    target_dir.mkdir(parents=True, exist_ok=True)
+    memory_persist_dir = target_dir
+
     embedding_function = OpenAIEmbeddingFunction(
+        # ChromaDB는 문장을 vector로 바꿔 저장하므로 embedding API key가 필요하다.
         api_key=require_openai_api_key(),
         model_name=openai_embedding_model_name(),
     )
-    client = chromadb.Client(Settings(anonymized_telemetry=False))
+    client = chromadb.PersistentClient(path=str(target_dir), settings=Settings(anonymized_telemetry=False))
+    try:
+        # 이전 실습 collection이 남아 있으면 지우고 같은 이름으로 다시 만든다.
+        client.delete_collection(DEFAULT_WEEK03_COLLECTION_NAME)
+    except Exception as exc:
+        if "does not exist" not in str(exc).lower():
+            raise
     memory_collection = client.create_collection(
-        name=f"kanamate_week3_{uuid.uuid4().hex[:8]}",
+        name=DEFAULT_WEEK03_COLLECTION_NAME,
         embedding_function=embedding_function,
     )
     memory_collection.add(
+        # ids/documents/metadatas는 검색 결과를 다시 사람이 읽을 수 있게 연결해준다.
         ids=[f"memory-{index + 1}" for index in range(len(source_memories))],
         documents=source_memories,
-        metadatas=[{"source": "student_input"} for _ in source_memories],
+        metadatas=[{"source": "student_input", "order": index + 1} for index, _ in enumerate(source_memories)],
     )
     return memory_collection
 
 
 def get_memory_collection() -> Any:
+    # collection을 아직 만들지 않았다면 기본 메모리로 한 번 초기화한다.
     global memory_collection
     if memory_collection is None:
         memory_collection = reset_memory_collection()
@@ -129,13 +149,30 @@ def get_memory_collection() -> Any:
 
 
 def format_chroma_results(found: dict[str, Any]) -> list[dict[str, Any]]:
+    # Chroma query 결과는 중첩 리스트라 학생이 읽기 쉬운 list[dict]로 펴준다.
     ids = found.get("ids", [[]])[0]
     documents = found.get("documents", [[]])[0]
     distances = found.get("distances", [[]])[0]
+    metadatas = found.get("metadatas", [[]])[0]
     return [
-        {"id": ids[index], "content": documents[index], "distance": distances[index]}
+        {
+            "id": ids[index],
+            "content": documents[index],
+            "distance": distances[index],
+            "metadata": metadatas[index] if index < len(metadatas) and metadatas[index] else {},
+        }
         for index in range(len(ids))
     ]
+
+
+def memory_collection_state(collection: Any | None = None) -> dict[str, Any]:
+    """Return the small ChromaDB state that students should inspect."""
+    target_collection = collection or get_memory_collection()
+    return {
+        "persist_dir": str(memory_persist_dir),
+        "collection_name": getattr(target_collection, "name", DEFAULT_WEEK03_COLLECTION_NAME),
+        "count": target_collection.count(),
+    }
 
 
 def search_memory_hits(
@@ -146,27 +183,35 @@ def search_memory_hits(
     """Return Chroma search results as a simple list of dictionaries."""
     target_collection = collection or get_memory_collection()
 
-    # TODO 1: memory_collection.query로 검색한다.
-    # 모범 답안 1(강의자료 테스트용)
+    # TODO 문제 1: ChromaDB collection에 질문을 검색한다.
+    # 모범 답안 1:
+    # query_texts는 여러 질문을 받을 수 있어 결과가 한 번 더 리스트로 감싸진다.
     found = target_collection.query(query_texts=[query], n_results=top_k)
 
-    # TODO 2: ids/documents/distances의 첫 번째 결과 묶음을 꺼낸다.
-    # 모범 답안 2(강의자료 테스트용)
+    # TODO 문제 2: ids/documents/metadatas/distances를 학생이 읽기 쉬운 모양으로 바꾼다.
+    # 모범 답안 2:
     hits = format_chroma_results(found)
 
-    # TODO 3: 각 hit을 {id, content, distance} 모양으로 바꾼다.
-    # 모범 답안 3(강의자료 테스트용)
+    # TODO 문제 3: agent tool trace와 직접 검색 결과가 같은 형식이 되게 반환한다.
+    # 모범 답안 3:
     return hits
 
 
 def build_week03_agent(search_hits: Callable[[str, int], list[dict[str, Any]]], max_tokens: int = 700):
-    @tool("search_memory", description="학생이 입력한 메모를 검색하고 단순한 hit 리스트로 돌려준다.")
+    # 검색 helper를 tool로 감싸면 모델이 필요할 때 검색할지 직접 판단한다.
+    # TODO 문제 4: ChromaDB 검색 helper를 LangChain tool로 감싸 Agentic RAG 검색 도구를 만든다.
+    # 모범 답안 4:
+    @tool("search_memory", description="수강생이 입력한 메모를 검색하고 단순한 hit 리스트로 돌려준다.")
     def search_memory_with_helper(query: str, top_k: int = 2) -> str:
         """Search student memory with the practice helper."""
+        # TODO 문제 5: 검색 결과 hits를 JSON 문자열 payload로 반환한다.
+        # 모범 답안 5:
         return json.dumps({"hits": search_hits(query, top_k)}, ensure_ascii=False)
 
     return create_agent(
         model=make_model(max_tokens),
+        # TODO 문제 6: agent가 필요할 때 호출할 검색 tool을 tools 목록에 넣는다.
+        # 모범 답안 6:
         tools=[search_memory_with_helper],
         system_prompt="저장된 메모가 필요한 질문이면 search_memory 도구를 호출한 뒤, 찾은 근거를 바탕으로 답한다.",
     )
@@ -174,22 +219,26 @@ def build_week03_agent(search_hits: Callable[[str, int], list[dict[str, Any]]], 
 
 def run_ui(question: str, memories_text: str):
     try:
+        # Textbox의 여러 줄 입력을 ChromaDB에 넣을 메모 리스트로 바꾼다.
         memories = [line.strip() for line in memories_text.splitlines() if line.strip()]
         if not memories:
-            return "검색할 메모를 한 줄 이상 입력하세요.", [], []
+            return "검색할 메모를 한 줄 이상 입력하세요.", [], {}, []
         reset_memory_collection(memories)
+        # 직접 검색 결과와 agent trace 안 검색 결과를 나란히 볼 수 있게 둘 다 만든다.
         hits = search_memory_hits(question, top_k=min(2, len(memories)))
+        state = memory_collection_state()
         rag_agent = build_week03_agent(search_memory_hits)
         result = rag_agent.invoke({"messages": [{"role": "user", "content": question}]})
-        return final_text(result), hits, extract_tool_trace(result)
+        return final_text(result), hits, state, extract_tool_trace(result)
     except Exception as exc:
-        return str(exc), [], []
+        return str(exc), [], {}, []
 
 
 def create_demo() -> gr.Blocks:
+    # 화면은 질문, 원본 메모, 검색 hit, collection 상태, tool trace를 함께 보여준다.
     with gr.Blocks(title="KanaMate Week 3") as demo:
         gr.Markdown("# Week 3 - Memory Search Helper")
-        question = gr.Textbox(label="질문", value="카나메이트 UI에서는 무엇을 함께 보여줘?")
+        question = gr.Textbox(label="질문", lines=3, value="카나메이트 UI에서는 무엇을 함께 보여줘?")
         memories = gr.Textbox(
             label="메모",
             lines=4,
@@ -201,8 +250,9 @@ def create_demo() -> gr.Blocks:
         run_button = gr.Button("검색 Agent 실행", variant="primary")
         answer = gr.Textbox(label="모델 최종 답변", lines=5)
         hits_json = gr.JSON(label="검색 hit 리스트")
+        state_json = gr.JSON(label="ChromaDB collection 상태")
         trace_json = gr.JSON(label="검색 Tool Trace")
-        run_button.click(run_ui, inputs=[question, memories], outputs=[answer, hits_json, trace_json])
+        run_button.click(run_ui, inputs=[question, memories], outputs=[answer, hits_json, state_json, trace_json])
     return demo
 
 
