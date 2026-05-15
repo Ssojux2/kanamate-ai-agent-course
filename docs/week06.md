@@ -1,45 +1,43 @@
-# 6주차. Supervisor/Sub-agent 위임과 Golden Scenario 하네스
+# 6주차. 카나메이트가 약속을 결정하다
+
+**부제:** Supervisor/Sub-agent 최종 일정 결정
 
 ## 학습 목표
 
-- supervisor와 sub-agent의 역할 차이를 설명한다.
-- supervisor가 `nana_agent` 또는 `kana_agent` 중 어디로 위임했는지 trace로 확인한다.
-- 선택된 agent뿐 아니라 sub-agent 내부 tool이 기대대로 실행됐는지 검증한다.
+- `nana_agent`, `kana_agent`, supervisor의 책임을 구분한다.
+- supervisor가 업무 tool을 직접 호출하지 않고 delegate tool만 호출하는 구조를 설명한다.
+- 팀원 A/B/C의 이전 일정과 개인 일정을 종합해 최종 회의 시간을 결정하는 trace를 검증한다.
 
 ## 핵심 개념
 
-6주차는 SQLite나 MCP를 다시 섞지 않고, agent를 역할별로 나누는 구조에 집중한다. 실제 supervisor/sub-agent 구현 문제는 별도 문제 repo에서 작성하고, 이 레포의 노트북은 routing contract, delegate payload, golden case 기준을 정리한다.
+6주차는 최종 일정 결정 구조다. `nana_agent`는 각 대화에서 내 개인 일정 생성/조회/삭제, 구조화 저장, 개인 RAG 검색을 담당한다. `kana_agent`는 MCP SQLite에서 다른 사람들의 일정과 이전 대화 기록을 불러와 모든 개인 일정을 종합한다.
 
-Supervisor는 직접 `personal_create_schedule`이나 `group_confirm_slot` 같은 업무 tool을 들고 있지 않다. 대신 `nana_agent`, `kana_agent`처럼 sub-agent를 감싼 위임 tool 중 하나를 호출한다.
-
-Golden Scenario 하네스는 "이 입력이면 이 agent와 내부 tool이 나와야 한다"는 반복 가능한 기준이다. 모델 문장이 조금 달라져도 `selected_agent`와 `inner_tool_names`가 맞으면 라우팅이 통과한 것으로 본다.
+Supervisor는 직접 업무 tool을 호출하지 않는다. `nana_agent`, `kana_agent` delegate tool만 호출하고, 각 sub-agent의 내부 trace를 근거로 최종 답변을 만든다.
 
 ## 실습 흐름
 
-1. `notebook/06_카나메이트_세상에_나가다.ipynb`에서 supervisor와 sub-agent 구성을 확인한다.
-2. `golden_cases`에서 기대 agent와 기대 내부 tool을 먼저 읽는다.
-3. `delegate_payload.trace`가 sub-agent 내부 tool call을 담는 방식을 확인한다.
-4. `inner_tool_names`로 내부 tool 이름만 추출해 기대값과 비교한다.
-5. `passed` 판정 기준을 실제 문제 repo 구현에 적용할 수 있게 정리한다.
+1. `notebook/06_카나메이트가_약속을_결정하다.ipynb`에서 최종 golden case를 확인한다.
+2. Nana payload에서 내 개인 일정 조회 trace를 확인한다.
+3. Kana payload에서 MCP SQLite 이전 대화 검색과 후보 비교 trace를 확인한다.
+4. Supervisor trace가 `nana_agent`, `kana_agent` delegate tool만 호출하는지 본다.
+5. “팀원 A/B/C와 다음 주 회의 시간을 잡아줘” 요청에서 가능한 시간 후보와 최종 선택 이유를 검증한다.
 
 ## 관찰할 trace/payload
 
-- supervisor trace: `nana_agent` 또는 `kana_agent` tool call
-- `selected_agent`: supervisor가 선택한 sub-agent
-- `delegate_payload`: sub-agent가 반환한 답변과 내부 trace
-- `delegate_payload.trace`: sub-agent 내부 tool call/tool result
-- `inner_tool_names`: sub-agent 내부에서 실제 호출된 업무 tool 이름
-- `expected_agent`: golden case가 기대한 agent
-- `expected_inner_tool`: golden case가 기대한 내부 tool
-- `passed`: 기대 agent와 내부 tool이 모두 맞는지
+- supervisor delegate tool call
+- `nana_agent.trace`
+- `kana_agent.trace`
+- `search_previous_conversations`
+- `extract_schedules_from_history`
+- `decide_final_slot`
+- 최종 `final_slot`과 `reason`
 
 ## 확인 질문
 
-1. supervisor가 직접 `personal_create_schedule`을 호출하지 않는 이유는 무엇인가?
-2. `selected_agent`만 맞고 내부 tool이 틀리면 성공이라고 볼 수 있는가?
-3. Golden Scenario는 눈으로 한 번 실행해 보는 것과 무엇이 다른가?
-4. sub-agent 내부 trace를 supervisor 밖으로 꺼내 보여줘야 하는 이유는 무엇인가?
+1. Supervisor가 직접 개인 일정 tool이나 MCP 검색 tool을 호출하지 않는 이유는 무엇인가?
+2. Nana와 Kana의 책임은 어떤 기준으로 나뉘는가?
+3. 최종 일정 결정에서 가능한 시간 후보와 선택 이유를 함께 보여줘야 하는 이유는 무엇인가?
 
 ## 작은 응용 과제
 
-개인 일정처럼 보이지만 멤버 응답이 포함된 애매한 요청을 만들어 보고, 기대 agent와 내부 tool을 먼저 정한 뒤 trace 판정 기준을 작성한다.
+팀원 한 명이 선택된 시간에 불가능하다고 가정하고, 최종 후보 비교 trace가 어떻게 바뀌어야 하는지 작성한다.

@@ -58,15 +58,25 @@ jupyter lab
 jupyter notebook
 ```
 
+## 주차별 흐름
+
+| 주차 | 주제 | 이번 주에 만드는 것 | 핵심 학습 포인트 |
+| --- | --- | --- | --- |
+| 1주차 | 나나를 깨우다 | Nana 개인 일정 tool | Tool call, tool result, 메모리 저장소 |
+| 2주차 | 자연어를 구조화된 요청으로 | Pydantic structured output | `kind`, 검증 가능한 payload, unknown 처리 |
+| 3주차 | 나나의 기록장을 만들다 | Structured output SQLite 저장 | 정규화 table, 원본 payload, `request_id` 연결 |
+| 4주차 | 나나가 기억을 찾아오다 | Agentic RAG with ChromaDB + SQLite | ChromaDB 참고자료 검색, SQLite row 검색, RAG tool 선택 |
+| 5주차 | 카나가 지난 대화를 불러오다 | MCP SQLite 이전 대화 검색 tool | MCP tool contract, 대화 검색, 일정 후보 추출 |
+| 6주차 | 카나메이트가 약속을 결정하다 | Supervisor/Sub-agent 최종 일정 결정 | Delegate tool, Nana/Kana 책임 분리, 최종 후보 결정 |
+
 ## 과정에서 보는 핵심
 
-- `trace`: 모델이 어떤 tool을 어떤 인자로 호출했는지
-- `structured_response`: 자유 문장이 아니라 앱에서 쓰기 좋은 구조화 결과인지
-- `hits`와 `distance`: ChromaDB가 검색한 기억 후보와 근거 점수
-- `conversation_id`, `message_id`: SQLite 대화 저장소에서 목록과 메시지가 연결되는지
-- `mcp_payload`: MCP 서버가 돌려줘야 하는 실행 결과 모양
-- `selected_agent`: supervisor가 어떤 sub-agent에게 위임했는지
-- `inner_tool_names`: sub-agent 내부에서 어떤 tool이 실행됐는지
+- `personal_create_schedule`, `personal_list_schedules`, `personal_delete_schedule`: Nana 개인 일정 tool
+- `structured_response`: Pydantic으로 검증된 `personal_schedule`, `group_schedule`, `todo`, `reminder`, `unknown` payload
+- `structured_requests`, `schedules`, `todos`, `reminders`: structured output을 저장하는 SQLite table
+- `search_personal_references`, `search_saved_requests`: ChromaDB/SQLite Agentic RAG tool
+- `search_previous_conversations`, `load_conversation_messages`, `extract_schedules_from_history`: MCP SQLite 이전 대화 검색 tool
+- `nana_agent`, `kana_agent`: supervisor가 호출하는 delegate tool
 
 ## Repo 구조
 
@@ -85,19 +95,19 @@ docs/week06.md                    # 6주차 강의 정리
 
 ## 노트북 목록
 
-- [notebook/01_나나를_깨우다.ipynb](notebook/01_나나를_깨우다.ipynb)
-- [notebook/02_자연어를_구조화된_일정으로.ipynb](notebook/02_자연어를_구조화된_일정으로.ipynb)
-- [notebook/03_기억하고_대화하는_나나.ipynb](notebook/03_기억하고_대화하는_나나.ipynb)
-- [notebook/04_나나에게_손과_발을_달아주다.ipynb](notebook/04_나나에게_손과_발을_달아주다.ipynb)
-- [notebook/05_카나의_자율_약속_잡기.ipynb](notebook/05_카나의_자율_약속_잡기.ipynb)
-- [notebook/06_카나메이트_세상에_나가다.ipynb](notebook/06_카나메이트_세상에_나가다.ipynb)
+- 1주차 나나를 깨우다: [notebook/01_나나를_깨우다.ipynb](notebook/01_나나를_깨우다.ipynb)
+- 2주차 자연어를 구조화된 요청으로: [notebook/02_자연어를_구조화된_요청으로.ipynb](notebook/02_자연어를_구조화된_요청으로.ipynb)
+- 3주차 나나의 기록장을 만들다: [notebook/03_나나의_기록장을_만들다.ipynb](notebook/03_나나의_기록장을_만들다.ipynb)
+- 4주차 나나가 기억을 찾아오다: [notebook/04_나나가_기억을_찾아오다.ipynb](notebook/04_나나가_기억을_찾아오다.ipynb)
+- 5주차 카나가 지난 대화를 불러오다: [notebook/05_카나가_지난_대화를_불러오다.ipynb](notebook/05_카나가_지난_대화를_불러오다.ipynb)
+- 6주차 카나메이트가 약속을 결정하다: [notebook/06_카나메이트가_약속을_결정하다.ipynb](notebook/06_카나메이트가_약속을_결정하다.ipynb)
 
 ## API 비용과 quota 주의
 
-일부 노트북은 실제 OpenAI API를 호출합니다. API key, billing, quota가 정상이어야 합니다.
+모든 주차 노트북은 LangChain 기반 흐름을 기준으로 실제 OpenAI API key를 확인합니다. API key, billing, quota가 정상이어야 합니다.
 
-- 4주차는 SQLite-only 실습이라 OpenAI API를 호출하지 않습니다.
-- 5주차와 6주차 노트북은 구현 문제 대신 payload/trace 기준을 설명하는 형태입니다.
+- 1, 2, 3, 5, 6주차는 `ChatOpenAI`와 LangChain `create_agent` 실행이 포함됩니다.
+- 4주차는 `ChatOpenAI` agent 실행과 ChromaDB embedding 호출이 포함됩니다.
 
 `insufficient_quota`, billing, rate limit 오류가 나면 API key, billing, usage limit, 현재 가상환경을 먼저 확인하세요.
 
@@ -121,10 +131,9 @@ PY
 
 수강생은 최종적으로 다음을 할 수 있어야 합니다.
 
-- 일반 챗봇과 agentic AI의 차이를 설명한다.
-- tool call trace에서 `tool_call`과 `tool_result`를 구분한다.
-- structured output이 왜 앱 개발에 필요한지 설명한다.
-- ChromaDB collection에 메모를 저장하고 RAG/Agentic RAG의 차이를 예시로 말한다.
-- SQLite에서 대화 목록과 메시지 로그를 분리해 저장하는 이유를 설명한다.
-- MCP tool이 Python 함수 tool과 어떻게 다른지 MCP payload를 근거로 설명한다.
-- supervisor와 sub-agent 라우팅 결과를 trace로 검증한다.
+- 개인 일정 tool의 생성/조회/삭제 trace를 설명한다.
+- 사용자 요청을 검증 가능한 structured output payload로 구조화한다.
+- structured output을 SQLite table에 정규화 저장하는 이유를 설명한다.
+- ChromaDB 참고자료 검색과 SQLite 저장 요청 검색의 차이를 말한다.
+- MCP SQLite tool로 이전 대화와 일정 정보를 검색하는 흐름을 설명한다.
+- Supervisor/Sub-agent 구조에서 최종 회의 시간을 결정하는 trace를 검증한다.

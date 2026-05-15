@@ -16,20 +16,19 @@
 | 구분 | 일반 챗봇 | Agentic AI |
 | --- | --- | --- |
 | 주요 출력 | 자연어 답변 | 답변 + tool call + 실행 결과 |
-| 앱과 연결 | 약함 | 일정, 검색, 대화 저장소, 외부 서버와 연결 |
+| 앱과 연결 | 약함 | 개인 일정, SQLite 저장소, ChromaDB, MCP, Sub-agent와 연결 |
 | 확인할 것 | 답변이 그럴듯한가 | 어떤 도구를 어떤 인자로 호출했는가 |
 | 실패 방식 | 틀린 답변 | 잘못된 tool 선택, 잘못된 인자, 잘못된 payload |
 
 6주 과정은 아래 흐름으로 확장된다.
 
 ```text
-LLM
--> Tool
--> Structured Output
--> ChromaDB Retrieval
--> SQLite Conversation Storage
--> MCP Tool Server
--> Supervisor/Sub-Agent Routing
+나나를 깨우다 (Nana Personal Schedule Tools)
+-> 자연어를 구조화된 요청으로 (Structured Output)
+-> 나나의 기록장을 만들다 (Structured Output to SQLite)
+-> 나나가 기억을 찾아오다 (Agentic RAG with ChromaDB + SQLite)
+-> 카나가 지난 대화를 불러오다 (MCP SQLite History Search Tools)
+-> 카나메이트가 약속을 결정하다 (Supervisor/Sub-Agent Final Scheduling)
 ```
 
 ## 실습 흐름
@@ -76,16 +75,16 @@ jupyter notebook
 [
   {
     "event": "tool_call",
-    "tool_name": "create_schedule",
+    "tool_name": "personal_create_schedule",
     "arguments": {
       "title": "발표 리허설",
-      "date": "2026-04-24",
-      "start_time": "10:00"
+      "date": "2026-05-19",
+      "start_time": "15:00"
     }
   },
   {
     "event": "tool_result",
-    "tool_name": "create_schedule",
+    "tool_name": "personal_create_schedule",
     "content": "{\"ok\": true}"
   }
 ]
@@ -94,11 +93,9 @@ jupyter notebook
 읽는 순서는 단순하다.
 
 1. 어떤 tool을 호출했는가?
-2. arguments가 사용자의 요청과 맞는가?
-3. tool result가 성공 payload를 돌려줬는가?
-4. 최종 답변이 payload를 근거로 말하는가?
-
-4주차부터는 tool trace가 없는 저장소 실습도 포함된다. 이때는 `conversation_id`, `message_id`, `status`, `message_count`처럼 SQLite row에 남은 값을 먼저 본다.
+2. arguments가 사용자 요청과 맞는가?
+3. tool result 또는 structured payload가 성공적으로 만들어졌는가?
+4. 최종 답변이 payload와 검색 근거를 바탕으로 말하는가?
 
 ## 확인 질문
 

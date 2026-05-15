@@ -1,42 +1,42 @@
-# 3주차. ChromaDB 기반 RAG와 Agentic RAG 검색 Tool 만들기
+# 3주차. 나나의 기록장을 만들다
+
+**부제:** 구조화된 출력을 SQLite에 저장
 
 ## 학습 목표
 
-- RAG와 Agentic RAG의 차이를 "검색을 누가, 언제 결정하는가"로 설명한다.
-- ChromaDB collection에 저장된 메모 수와 검색 hit를 확인한다.
-- 직접 검색 결과와 agent tool trace 안의 검색 결과를 비교한다.
+- Week 2의 structured output을 SQLite row로 저장한다.
+- `structured_requests`, `schedules`, `todos`, `reminders` table의 역할을 구분한다.
+- `kind`에 따라 알맞은 table에 정규화 저장되는지 확인한다.
 
 ## 핵심 개념
 
-RAG는 먼저 검색한 내용을 모델 답변에 넣는 흐름이다. Agentic RAG는 모델이 검색이 필요한지 판단하고 `search_memory` tool을 호출하는 흐름이다. 이번 주의 검색 기억 저장소는 ChromaDB collection이다.
+2주차 payload는 앱 코드에서 쓰기 좋은 객체지만, 조회와 추적을 위해서는 DB row로 남아야 한다. 모든 원본 structured output은 `structured_requests`에 저장하고, 일정/할 일/알림은 각각의 table에 정규화한다.
 
-중요한 것은 embedding 수학이나 ChromaDB 내부 index가 아니라, 어떤 메모가 저장됐고 어떤 질문에서 어떤 hit가 돌아왔는지 설명하는 것이다.
+UI 좌측 대화 목록과 별개로 “추출된 일정/할 일/알림”이 실제 DB row로 남는지가 이번 주의 핵심 검증 포인트다.
 
 ## 실습 흐름
 
-1. `notebook/03_기억하고_대화하는_나나.ipynb`에서 기본 메모를 ChromaDB collection에 저장한다.
-2. `reset_memory_collection`과 `memory_collection_state`로 저장 상태를 확인한다.
-3. `search_memory_hits`를 직접 호출해 `hits`와 `distance`를 본다.
-4. `search_memory` tool을 가진 agent가 검색이 필요한 질문에서 tool을 호출하는지 확인한다.
-5. 회고 셀에서 직접 검색 결과와 agent tool trace 안의 검색 결과를 비교한다.
+1. `notebook/03_나나의_기록장을_만들다.ipynb`에서 SQLite schema를 확인한다.
+2. 예시 structured output payload를 준비한다.
+3. `personal_schedule`, `group_schedule`은 `schedules` table에 저장한다.
+4. `todo`는 `todos`, `reminder`는 `reminders` table에 저장한다.
+5. 저장 trace에서 `request_id`가 원본 payload와 정규화 row를 연결하는지 확인한다.
 
 ## 관찰할 trace/payload
 
-- `collection_name`: 현재 사용 중인 ChromaDB collection 이름
-- `count`: collection에 저장된 메모 수
-- `hits`: 검색 결과 리스트
-- `content`: 검색된 원문 메모
-- `distance`: 질문과 hit 사이의 거리 값
-- `search_memory` tool call: agent가 검색 필요성을 판단했는지
-- `tool_result` 안의 `hits`: 직접 검색 결과와 같은 구조인지
+- `structured_requests.payload_json`
+- `schedules.schedule_type`
+- `todos.priority`
+- `reminders.start_time`
+- `request_id`
+- table별 row count
 
 ## 확인 질문
 
-1. RAG와 Agentic RAG는 검색을 누가, 언제 결정한다는 점에서 다른가?
-2. ChromaDB `count()`와 `query(...)` 결과는 각각 무엇을 확인하는 값인가?
-3. `hits`의 `content`와 최종 답변이 어긋나면 무엇을 의심해야 하는가?
-4. `distance`는 왜 최종 답변 문구보다 먼저 봐야 하는가?
+1. 원본 payload를 `structured_requests`에 남기는 이유는 무엇인가?
+2. `personal_schedule`과 `group_schedule`을 같은 table에 저장하면서도 구분하려면 어떤 컬럼이 필요한가?
+3. `unknown` 요청은 왜 정규화 table에 저장하지 않는가?
 
 ## 작은 응용 과제
 
-메모 한 줄을 의도적으로 바꾼 뒤 같은 질문을 다시 실행한다. ChromaDB hit, `distance`, 최종 답변이 어떻게 변하는지 비교한다.
+`unknown` payload를 하나 추가하고 `structured_requests`에만 저장되는지 확인한다.

@@ -1,42 +1,41 @@
-# 4주차. SQLite로 대화 목록과 메시지 관리하기
+# 4주차. 나나가 기억을 찾아오다
+
+**부제:** Agentic RAG with ChromaDB + SQLite
 
 ## 학습 목표
 
-- SQLite 파일에 대화 목록과 메시지 로그를 저장한다.
-- `conversations`와 `messages` table의 역할을 구분한다.
-- 노트북에서 보이는 대화 목록이 실제 SQLite row와 이어지는지 확인한다.
+- 개인 참고자료는 ChromaDB에서, 구조화된 일정/할 일/알림은 SQLite에서 검색한다.
+- agent가 필요한 순간 `search_personal_references`와 `search_saved_requests` tool 중 하나를 선택해 호출하는 흐름을 확인한다.
+- 답변에 검색된 참고자료와 SQLite row가 첨부 맥락으로 사용되는지 trace로 검증한다.
 
 ## 핵심 개념
 
-4주차는 외부 tool이나 MCP를 붙이기 전에, 앱이 대화 상태를 어떻게 저장하는지 먼저 다룬다. 사용자가 메시지를 보내면 화면의 채팅 기록만 바뀌는 것이 아니라, SQLite의 `conversations` row와 `messages` row가 함께 갱신된다.
+4주차는 RAG 검색 대상을 둘로 나눈다. 자유로운 개인 참고자료는 ChromaDB에 저장해 embedding 검색을 사용하고, 3주차에서 구조화해 저장한 일정/할 일/알림은 SQLite row 검색을 사용한다.
 
-중요한 관찰 대상은 모델 답변이 아니라 저장 구조다. 대화 하나는 `conversation_id`로 식별하고, 여러 메시지는 같은 `conversation_id`를 외래키처럼 공유한다. 대화를 보관해도 메시지는 삭제하지 않고 `status="archived"`로 표시한다.
+중요한 것은 agent가 어떤 질문에서 어떤 검색 tool을 선택했는지, 그리고 답변이 그 검색 결과를 근거로 삼았는지 설명하는 것이다.
 
 ## 실습 흐름
 
-1. `notebook/04_나나에게_손과_발을_달아주다.ipynb`에서 SQLite schema와 기본 저장 흐름을 확인한다.
-2. 노트북의 `initialize_conversation_db`, `create_conversation`, `append_message` 셀을 실행한다.
-3. `list_conversations`로 대화 목록, 메시지 수, 마지막 메시지 preview를 확인한다.
-4. `load_conversation`으로 특정 대화의 메시지 로그를 시간순으로 조회한다.
-5. `archive_conversation`으로 대화를 보관 처리하고 active 목록에서 빠지는지 본다.
+1. `notebook/04_나나가_기억을_찾아오다.ipynb`에서 ChromaDB 참고자료 저장 흐름을 확인한다.
+2. SQLite saved request row 검색 역할을 `search_saved_requests`로 구분한다.
+3. 개인 참고자료 질문은 `search_personal_references`를 호출하는지 본다.
+4. 저장 일정/할 일/알림 질문은 `search_saved_requests`를 호출해야 한다는 기준을 세운다.
+5. trace에서 어떤 RAG tool이 왜 호출됐는지 설명한다.
 
 ## 관찰할 trace/payload
 
-- `conversation_id`: 대화 하나를 식별하는 고유 값
-- `message_id`: 메시지 하나를 식별하는 고유 값
-- `conversations.status`: `active` 또는 `archived`
-- `message_count`: 한 대화에 저장된 메시지 수
-- `last_message`: 목록에서 빠르게 확인하는 마지막 메시지 preview
-- `messages.role`: `user`, `assistant`, `system` 중 누가 남긴 메시지인지
-- `updated_at`: 새 메시지 저장이나 보관 처리 때 갱신되는 시간
+- ChromaDB `hits`, `distance`, `metadata`
+- SQLite saved request rows
+- `search_personal_references` tool call
+- `search_saved_requests` tool call
+- 답변에 첨부된 검색 맥락
 
 ## 확인 질문
 
-1. 대화 목록 table과 메시지 table을 나누는 이유는 무엇인가?
-2. `conversation_id`가 대화 목록과 메시지 로그를 어떻게 연결하는가?
-3. 보관 처리와 삭제는 사용자 경험과 데이터 검증에서 어떻게 다른가?
-4. `message_count`와 `last_message`는 어떤 화면을 만들 때 유용한가?
+1. ChromaDB에 저장할 정보와 SQLite에 저장할 정보는 어떻게 나누는가?
+2. agent가 어떤 상황에서 `search_saved_requests`를 호출해야 하는가?
+3. 검색 결과와 최종 답변이 어긋나면 무엇을 의심해야 하는가?
 
 ## 작은 응용 과제
 
-대화 두 개를 만들고 각각 메시지를 저장한다. 하나만 보관한 뒤 active 목록과 전체 목록 결과가 어떻게 다른지 비교한다.
+같은 질문을 개인 참고자료 질문과 저장 일정 질문으로 바꿔 보고, 호출되어야 하는 RAG tool이 어떻게 달라지는지 비교한다.
