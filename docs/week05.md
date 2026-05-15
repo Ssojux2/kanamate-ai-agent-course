@@ -1,41 +1,41 @@
-# 5주차. Supervisor/Sub-Agent 위임과 Golden Scenario 하네스
+# 5주차. MCP 서버 Tool Call 분리하기
 
 ## 학습 목표
 
-- supervisor와 sub-agent의 역할 차이를 설명한다.
-- supervisor가 `nana_agent` 또는 `kana_agent` 중 어디로 위임했는지 trace로 확인한다.
-- 선택된 agent뿐 아니라 sub-agent 내부 tool이 기대대로 실행됐는지 검증한다.
+- MCP를 agent 코드 밖에서 tool을 제공하는 서버 구조로 설명한다.
+- MCP 서버가 반환해야 하는 tool payload 모양을 읽는다.
+- 단일 agent가 MCP tool을 호출했는지 trace와 payload로 확인하는 기준을 세운다.
 
 ## 핵심 개념
 
-Sub-agent는 역할과 사용할 도구를 나눈 agent다. Supervisor는 직접 `personal_create_schedule`이나 `group_confirm_slot` 같은 업무 tool을 들고 있지 않다. 대신 `nana_agent`, `kana_agent`처럼 sub-agent를 감싼 tool 중 하나를 호출한다.
+5주차는 4주차의 SQLite 저장소와 분리해서 MCP 자체에 집중한다. 실제 MCP server/client 문제 코드는 별도 문제 repo에서 작성하고, 이 레포의 노트북은 tool schema, payload, trace 관찰 기준을 정리한다.
 
-Golden Scenario 하네스는 "이 입력이면 이 agent와 내부 tool이 나와야 한다"는 반복 가능한 기준이다. 모델 문장이 조금 달라져도 `selected_agent`와 `inner_tool_names`가 맞으면 라우팅이 통과한 것으로 본다.
+Agent는 Python 함수를 직접 받지 않고 MCP 서버에서 읽어온 tool을 사용한다. 이번 주의 성공 기준은 SQLite row가 아니라 MCP payload다. 서버가 어떤 arguments를 받았고 어떤 `event_id`와 `status`를 반환했는지 확인한다.
 
 ## 실습 흐름
 
-1. `notebook/05_subagent_skills_md_harness.ipynb`에서 supervisor와 sub-agent 구성을 확인한다.
-2. `week05.py`의 `personal_create_schedule`, `group_confirm_slot`, `memory_save` payload를 읽는다.
-3. `nana_agent` 위임 tool과 `kana_agent` 위임 tool이 내부 agent를 실행하고 trace를 payload에 담는지 본다.
-4. `run_supervisor_case`로 개인 일정 케이스와 그룹 조율 케이스를 반복 실행한다.
-5. `python week05.py`로 Gradio UI에서 `selected_agent`, `inner_tool_names`, delegate payload를 확인한다.
+1. `notebook/05_카나의_자율_약속_잡기.ipynb`에서 MCP payload shape를 확인한다.
+2. `calendar_check_availability` payload와 `calendar_create_event` payload의 공통 필드를 비교한다.
+3. 일정 생성 payload의 `arguments`, `event_id`, `status`를 확인한다.
+4. 예시 trace에서 `tool_call`과 `tool_result`를 구분한다.
+5. 실제 문제 repo에서 MCP 서버를 붙일 때 어떤 값을 검증해야 하는지 정리한다.
 
 ## 관찰할 trace/payload
 
-- supervisor trace: `nana_agent` 또는 `kana_agent` tool call
-- `selected_agent`: supervisor가 선택한 sub-agent
-- `delegate_payload`: sub-agent가 반환한 답변과 내부 trace
-- `inner_tool_names`: sub-agent 내부에서 실제 호출된 업무 tool 이름
-- `expected_agent`: golden case가 기대한 agent
-- `expected_inner_tool`: golden case가 기대한 내부 tool
-- `passed`: 기대 agent와 내부 tool이 모두 맞는지
+- `calendar_check_availability` tool call: 가능 시간 조회 요청인지
+- `calendar_create_event` tool call: 일정 생성 요청인지
+- `arguments`: MCP 서버가 받은 `title`, `date`, `start_time`, `members`
+- `event_id`: MCP 서버가 생성한 일정 식별 값
+- `status`: MCP 서버 tool 실행 결과
+- `mcp_payload`: MCP tool result를 JSON으로 해석한 값
 
 ## 확인 질문
 
-1. supervisor가 직접 `personal_create_schedule`을 호출하지 않는 이유는 무엇인가?
-2. `selected_agent`만 맞고 내부 tool이 틀리면 성공이라고 볼 수 있는가?
-3. Golden Scenario는 눈으로 한 번 실행해 보는 것과 무엇이 다른가?
+1. Python 함수 tool과 MCP tool은 어디에서 tool 목록을 가져온다는 점이 다른가?
+2. MCP 서버를 agent 코드와 분리하면 어떤 장점이 있는가?
+3. MCP payload에서 사람이 반드시 확인해야 할 필드는 무엇인가?
+4. 실제 문제 repo에서 MCP tool을 agent에 연결할 때 어떤 trace를 먼저 봐야 하는가?
 
 ## 작은 응용 과제
 
-개인 일정처럼 보이지만 멤버 응답이 포함된 애매한 요청을 만든다. Supervisor가 어떤 agent를 선택하는지 보고, 그 선택이 맞는지 trace를 근거로 토론한다.
+가능 시간 조회 payload와 일정 생성 payload에서 공통 필드와 생성 전용 필드를 나눠 본다.

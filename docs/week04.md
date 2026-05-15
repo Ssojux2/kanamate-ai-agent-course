@@ -1,47 +1,42 @@
-# 4주차. MCP 서버 Tool Call과 SQLite 저장 흐름 연결하기
+# 4주차. SQLite로 대화 목록과 메시지 관리하기
 
 ## 학습 목표
 
-- Python 함수 tool과 MCP tool의 차이를 tool 제공 위치 기준으로 설명한다.
-- 별도 실행 중인 MCP HTTP 서버에서 tool 목록을 가져와 agent가 호출하는 흐름을 이해한다.
-- MCP payload의 `event_id`와 SQLite 저장 row의 `event_id`를 비교한다.
+- SQLite 파일에 대화 목록과 메시지 로그를 저장한다.
+- `conversations`와 `messages` table의 역할을 구분한다.
+- 노트북에서 보이는 대화 목록이 실제 SQLite row와 이어지는지 확인한다.
 
 ## 핵심 개념
 
-MCP는 도구를 agent 코드 안에 직접 넣는 대신, 외부 서버가 표준 방식으로 tool 목록과 실행 결과를 제공하게 해준다. 이번 주에는 `week04_mcp_server.py`가 로컬 FastMCP 서버로 동작하고, `week04.py`는 그 서버에 붙는 client/UI 역할을 한다.
+4주차는 외부 tool이나 MCP를 붙이기 전에, 앱이 대화 상태를 어떻게 저장하는지 먼저 다룬다. 사용자가 메시지를 보내면 화면의 채팅 기록만 바뀌는 것이 아니라, SQLite의 `conversations` row와 `messages` row가 함께 갱신된다.
 
-일정 생성 tool인 `calendar_create_event`는 MCP payload를 반환하는 동시에 SQLite `calendar_events` table에 row를 저장한다. 따라서 성공 여부는 최종 답변이 아니라 MCP payload와 SQLite row를 같이 봐야 한다.
+중요한 관찰 대상은 모델 답변이 아니라 저장 구조다. 대화 하나는 `conversation_id`로 식별하고, 여러 메시지는 같은 `conversation_id`를 외래키처럼 공유한다. 대화를 보관해도 메시지는 삭제하지 않고 `status="archived"`로 표시한다.
 
 ## 실습 흐름
 
-1. 다른 터미널에서 MCP 서버를 먼저 실행한다.
-
-```bash
-python week04_mcp_server.py
-```
-
-2. `notebook/04_mcp_tool_call_gradio_ui.ipynb`에서 기본 endpoint `http://127.0.0.1:8004/mcp`를 확인한다.
-3. `week04_mcp_server.py`의 `calendar_check_availability`, `calendar_create_event`가 어떤 payload를 반환하는지 본다.
-4. `week04.py`에서 `load_calendar_mcp_tools`, `run_mcp_event_request`, `parse_mcp_tool_result` 흐름을 확인한다.
-5. `python week04.py`로 Gradio UI를 실행해 MCP payload, SQLite row, trace를 한 화면에서 비교한다.
+1. `notebook/04_나나에게_손과_발을_달아주다.ipynb`에서 SQLite schema와 기본 저장 흐름을 확인한다.
+2. 노트북의 `initialize_conversation_db`, `create_conversation`, `append_message` 셀을 실행한다.
+3. `list_conversations`로 대화 목록, 메시지 수, 마지막 메시지 preview를 확인한다.
+4. `load_conversation`으로 특정 대화의 메시지 로그를 시간순으로 조회한다.
+5. `archive_conversation`으로 대화를 보관 처리하고 active 목록에서 빠지는지 본다.
 
 ## 관찰할 trace/payload
 
-- `calendar_create_event` tool call: agent가 MCP tool을 호출했는지
-- MCP tool result content: 서버가 돌려준 원본 결과
-- `parse_mcp_tool_result(...)` payload: UI와 검증 코드가 읽는 dict
-- `event_id`: MCP payload와 SQLite row를 연결하는 값
-- `arguments`: 서버가 받은 `title`, `date`, `start_time`, `members`
-- `saved_events`: SQLite에서 다시 읽은 저장 row 목록
+- `conversation_id`: 대화 하나를 식별하는 고유 값
+- `message_id`: 메시지 하나를 식별하는 고유 값
+- `conversations.status`: `active` 또는 `archived`
+- `message_count`: 한 대화에 저장된 메시지 수
+- `last_message`: 목록에서 빠르게 확인하는 마지막 메시지 preview
+- `messages.role`: `user`, `assistant`, `system` 중 누가 남긴 메시지인지
+- `updated_at`: 새 메시지 저장이나 보관 처리 때 갱신되는 시간
 
 ## 확인 질문
 
-1. Python 함수 tool과 MCP tool은 어디에서 tool 목록을 가져온다는 점이 다른가?
-2. MCP payload에서 사람이 반드시 확인해야 할 필드는 무엇인가?
-3. SQLite 저장 row는 MCP payload와 어떤 값으로 연결되는가?
-4. `streamable-http`, `FastMCP`, `MultiServerMCPClient` 중 지금 깊게 몰라도 되는 것은 무엇이며, 그래도 관찰해야 하는 결과는 무엇인가?
-5. MCP tool을 agent에서 실행할 때 `invoke`가 아니라 `ainvoke`를 써야 하는 이유는 무엇인가?
+1. 대화 목록 table과 메시지 table을 나누는 이유는 무엇인가?
+2. `conversation_id`가 대화 목록과 메시지 로그를 어떻게 연결하는가?
+3. 보관 처리와 삭제는 사용자 경험과 데이터 검증에서 어떻게 다른가?
+4. `message_count`와 `last_message`는 어떤 화면을 만들 때 유용한가?
 
 ## 작은 응용 과제
 
-날짜와 멤버를 바꾼 요청을 실행한다. MCP payload의 `arguments`, `event_id`, SQLite row가 어떻게 달라지는지 비교한다.
+대화 두 개를 만들고 각각 메시지를 저장한다. 하나만 보관한 뒤 active 목록과 전체 목록 결과가 어떻게 다른지 비교한다.

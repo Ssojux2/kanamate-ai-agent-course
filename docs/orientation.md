@@ -6,8 +6,8 @@
 
 - 일반 챗봇과 agentic AI의 차이를 설명한다.
 - 모델 답변보다 `tool_call`, `tool_result`, `payload`가 더 중요한 이유를 이해한다.
-- 1-6주차 실습에 필요한 환경과 실행 순서를 준비한다.
-- 오류가 났을 때 실행한 명령, 오류 메시지, 사용 파일을 기준으로 원인을 좁힌다.
+- 1-6주차 노트북 실행에 필요한 환경을 준비한다.
+- 오류가 났을 때 실행한 셀, 오류 메시지, 사용 파일을 기준으로 원인을 좁힌다.
 
 ## 핵심 개념
 
@@ -16,7 +16,7 @@
 | 구분 | 일반 챗봇 | Agentic AI |
 | --- | --- | --- |
 | 주요 출력 | 자연어 답변 | 답변 + tool call + 실행 결과 |
-| 앱과 연결 | 약함 | 일정, 검색, 메모, 외부 서버와 연결 |
+| 앱과 연결 | 약함 | 일정, 검색, 대화 저장소, 외부 서버와 연결 |
 | 확인할 것 | 답변이 그럴듯한가 | 어떤 도구를 어떤 인자로 호출했는가 |
 | 실패 방식 | 틀린 답변 | 잘못된 tool 선택, 잘못된 인자, 잘못된 payload |
 
@@ -27,9 +27,9 @@ LLM
 -> Tool
 -> Structured Output
 -> ChromaDB Retrieval
--> MCP and SQLite Tool Storage
+-> SQLite Conversation Storage
+-> MCP Tool Server
 -> Supervisor/Sub-Agent Routing
--> Explainable WebUI Demo
 ```
 
 ## 실습 흐름
@@ -60,10 +60,9 @@ OPENAI_MODEL=gpt-4o-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-준비가 됐는지 확인한다.
+Jupyter를 실행한다.
 
 ```bash
-python -m compileall week01.py week02.py week03.py week04.py week05.py week06.py
 jupyter lab
 # 또는
 jupyter notebook
@@ -99,12 +98,15 @@ jupyter notebook
 3. tool result가 성공 payload를 돌려줬는가?
 4. 최종 답변이 payload를 근거로 말하는가?
 
+4주차부터는 tool trace가 없는 저장소 실습도 포함된다. 이때는 `conversation_id`, `message_id`, `status`, `message_count`처럼 SQLite row에 남은 값을 먼저 본다.
+
 ## 확인 질문
 
 1. 일반 챗봇과 agentic AI는 출력과 실패 방식이 어떻게 다른가?
 2. `tool_call`과 `tool_result`는 각각 누가 만들고 무엇을 의미하는가?
-3. 최종 답변이 자연스러워도 trace를 확인해야 하는 이유는 무엇인가?
+3. SQLite 저장소처럼 tool trace가 없는 주차에서는 무엇을 검증해야 하는가?
+4. 최종 답변이 자연스러워도 trace나 payload를 확인해야 하는 이유는 무엇인가?
 
 ## 작은 응용 과제
 
-1주차 노트북을 열기 전에 `.env` 설정과 `compileall` 확인을 끝낸다. 오류가 난다면 실행한 명령, 전체 오류 메시지, 사용 중인 파일명, Python 환경을 함께 정리한다.
+1주차 노트북을 열기 전에 `.env` 설정과 Jupyter 실행을 끝낸다. 오류가 난다면 실행한 셀, 전체 오류 메시지, 사용 중인 파일명, Python 환경을 함께 정리한다.

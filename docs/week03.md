@@ -14,11 +14,11 @@ RAG는 먼저 검색한 내용을 모델 답변에 넣는 흐름이다. Agentic 
 
 ## 실습 흐름
 
-1. `notebook/03_rag_agentic_rag.ipynb`에서 기본 메모를 ChromaDB collection에 저장한다.
-2. `week03.py`의 `reset_memory_collection`과 `memory_collection_state`로 저장 상태를 확인한다.
+1. `notebook/03_기억하고_대화하는_나나.ipynb`에서 기본 메모를 ChromaDB collection에 저장한다.
+2. `reset_memory_collection`과 `memory_collection_state`로 저장 상태를 확인한다.
 3. `search_memory_hits`를 직접 호출해 `hits`와 `distance`를 본다.
 4. `search_memory` tool을 가진 agent가 검색이 필요한 질문에서 tool을 호출하는지 확인한다.
-5. `python week03.py`로 Gradio UI를 실행해 원본 메모, 검색 hit, collection 상태, tool trace를 함께 본다.
+5. 회고 셀에서 직접 검색 결과와 agent tool trace 안의 검색 결과를 비교한다.
 
 ## 관찰할 trace/payload
 
