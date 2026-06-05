@@ -16,7 +16,7 @@ Supervisor는 직접 업무 tool을 호출하지 않는다. `nana_agent`, `kana_
 
 ## 실습 흐름
 
-1. `notebook/06_카나메이트가_약속을_결정하다.ipynb`에서 최종 golden case를 확인한다.
+1. `notebook/6주차_카나메이트가_약속을_결정하다.ipynb`에서 최종 golden case를 확인한다.
 2. Nana payload에서 내 개인 일정 조회 trace를 확인한다.
 3. Kana payload에서 MCP SQLite 이전 대화 검색과 후보 비교 trace를 확인한다.
 4. Supervisor trace가 `nana_agent`, `kana_agent` delegate tool만 호출하는지 본다.

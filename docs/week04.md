@@ -16,7 +16,7 @@
 
 ## 실습 흐름
 
-1. `notebook/04_나나가_기억을_찾아오다.ipynb`에서 ChromaDB 참고자료 저장 흐름을 확인한다.
+1. `notebook/4주차_나나가_기억을_찾아오다.ipynb`에서 ChromaDB 참고자료 저장 흐름을 확인한다.
 2. SQLite saved request row 검색 역할을 `search_saved_requests`로 구분한다.
 3. 개인 참고자료 질문은 `search_personal_references`를 호출하는지 본다.
 4. 저장 일정/할 일/알림 질문은 `search_saved_requests`를 호출해야 한다는 기준을 세운다.

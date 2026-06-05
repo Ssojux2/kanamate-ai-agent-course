@@ -21,19 +21,17 @@ docs/orientation.md
 -> notebook/ 주차별 노트북
 ```
 
-3. `langchain` conda 가상환경을 사용합니다.
+3. `uv`로 실습 환경을 준비합니다.
 
 ```bash
-conda activate langchain
-source scripts/use_langchain_env.sh
+bash scripts/setup_uv_env.sh
 ```
 
-새 머신에서 같은 환경을 다시 만들 때는 repo에 저장된 `environment.yml`을 사용합니다.
+새 머신에서도 같은 명령을 실행하면 `pyproject.toml`과 `uv.lock` 기준으로 `.venv`가 만들어지고 Jupyter kernel이 등록됩니다.
 
 ```bash
-conda env create -f environment.yml
-conda activate langchain
-source scripts/use_langchain_env.sh
+uv sync
+uv run python -m ipykernel install --user --name kanamate --display-name "Python (KanaMate)"
 ```
 
 4. `.env` 파일을 준비합니다.
@@ -53,10 +51,12 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 5. Jupyter를 실행합니다.
 
 ```bash
-jupyter lab
+uv run jupyter lab
 # 또는
-jupyter notebook
+uv run jupyter notebook
 ```
+
+Jupyter에서 kernel은 `Python (KanaMate)`를 선택합니다.
 
 ## 주차별 흐름
 
@@ -82,8 +82,10 @@ jupyter notebook
 
 ```text
 notebook/                         # 1-6주차 학습 노트북
-environment.yml                   # langchain conda 환경 재현 파일
-scripts/use_langchain_env.sh      # langchain env 활성화 + Jupyter kernel 등록
+pyproject.toml                    # uv 프로젝트 의존성 정의
+uv.lock                           # uv 재현 환경 lockfile
+.python-version                   # uv가 사용할 Python 버전
+scripts/setup_uv_env.sh           # uv sync + Jupyter kernel 등록
 docs/orientation.md               # 0주차 오리엔테이션
 docs/week01.md                    # 1주차 강의 정리
 docs/week02.md                    # 2주차 강의 정리
@@ -95,12 +97,12 @@ docs/week06.md                    # 6주차 강의 정리
 
 ## 노트북 목록
 
-- 1주차 나나를 깨우다: [notebook/01_나나를_깨우다.ipynb](notebook/01_나나를_깨우다.ipynb)
-- 2주차 자연어를 구조화된 요청으로: [notebook/02_자연어를_구조화된_요청으로.ipynb](notebook/02_자연어를_구조화된_요청으로.ipynb)
-- 3주차 나나의 기록장을 만들다: [notebook/03_나나의_기록장을_만들다.ipynb](notebook/03_나나의_기록장을_만들다.ipynb)
-- 4주차 나나가 기억을 찾아오다: [notebook/04_나나가_기억을_찾아오다.ipynb](notebook/04_나나가_기억을_찾아오다.ipynb)
-- 5주차 카나가 지난 대화를 불러오다: [notebook/05_카나가_지난_대화를_불러오다.ipynb](notebook/05_카나가_지난_대화를_불러오다.ipynb)
-- 6주차 카나메이트가 약속을 결정하다: [notebook/06_카나메이트가_약속을_결정하다.ipynb](notebook/06_카나메이트가_약속을_결정하다.ipynb)
+- 1주차 나나를 깨우다: [notebook/1주차_나나를_깨우다.ipynb](notebook/1주차_나나를_깨우다.ipynb)
+- 2주차 자연어를 구조화된 요청으로: [notebook/2주차_자연어를_구조화된_요청으로_만든다.ipynb](notebook/2주차_자연어를_구조화된_요청으로_만든다.ipynb)
+- 3주차 나나의 기록장을 만들다: [notebook/3주차_나나의_기록장을_만들다.ipynb](notebook/3주차_나나의_기록장을_만들다.ipynb)
+- 4주차 나나가 기억을 찾아오다: [notebook/4주차_나나가_기억을_찾아오다.ipynb](notebook/4주차_나나가_기억을_찾아오다.ipynb)
+- 5주차 카나가 지난 대화를 불러오다: [notebook/5주차_카나가_지난대화를_불러오다.ipynb](notebook/5주차_카나가_지난대화를_불러오다.ipynb)
+- 6주차 카나메이트가 약속을 결정하다: [notebook/6주차_카나메이트가_약속을_결정하다.ipynb](notebook/6주차_카나메이트가_약속을_결정하다.ipynb)
 
 ## API 비용과 quota 주의
 
@@ -109,14 +111,14 @@ docs/week06.md                    # 6주차 강의 정리
 - 1, 2, 3, 5, 6주차는 `ChatOpenAI`와 LangChain `create_agent` 실행이 포함됩니다.
 - 4주차는 `ChatOpenAI` agent 실행과 ChromaDB embedding 호출이 포함됩니다.
 
-`insufficient_quota`, billing, rate limit 오류가 나면 API key, billing, usage limit, 현재 가상환경을 먼저 확인하세요.
+`insufficient_quota`, billing, rate limit 오류가 나면 API key, billing, usage limit, 현재 uv 환경을 먼저 확인하세요.
 
 ## 검증 명령
 
 다음 검증은 노트북 JSON이 정상인지 확인합니다.
 
 ```bash
-python - <<'PY'
+uv run python - <<'PY'
 import nbformat
 from pathlib import Path
 

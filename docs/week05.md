@@ -16,7 +16,7 @@
 
 ## 실습 흐름
 
-1. `notebook/05_카나가_지난_대화를_불러오다.ipynb`에서 MCP SQLite tool payload shape를 확인한다.
+1. `notebook/5주차_카나가_지난대화를_불러오다.ipynb`에서 MCP SQLite tool payload shape를 확인한다.
 2. `search_previous_conversations`로 관련 대화 목록을 찾는다.
 3. `load_conversation_messages`로 선택된 대화 메시지를 불러온다.
 4. `extract_schedules_from_history`로 이전 대화에서 일정/참석자 후보를 추출한다.

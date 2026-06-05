@@ -35,20 +35,18 @@
 
 수강 전에는 Python 함수, 리스트/딕셔너리, JSON 모양, 문자열, 터미널 명령, Jupyter 셀 실행, `.env` 파일 편집을 대략 알아볼 수 있으면 충분하다.
 
-기존 환경이 있다면 아래 순서로 시작한다.
+repo 루트에서 `uv` 환경을 준비한다.
 
 ```bash
-conda activate langchain
-source scripts/use_langchain_env.sh
-cp .env.example .env
+bash scripts/setup_uv_env.sh
 ```
 
-새 환경에서 시작한다면 repo의 환경 파일로 `langchain` env를 만든다.
+이 명령은 `pyproject.toml`과 `uv.lock` 기준으로 `.venv`를 만들고, Jupyter에서 선택할 `Python (KanaMate)` kernel을 등록한다.
+
+`.env` 파일을 준비한다.
 
 ```bash
-conda env create -f environment.yml
-conda activate langchain
-source scripts/use_langchain_env.sh
+cp .env.example .env
 ```
 
 `.env` 파일에는 다음 값을 넣는다.
@@ -62,10 +60,12 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 Jupyter를 실행한다.
 
 ```bash
-jupyter lab
+uv run jupyter lab
 # 또는
-jupyter notebook
+uv run jupyter notebook
 ```
+
+Jupyter에서 kernel은 `Python (KanaMate)`를 선택한다.
 
 ## 관찰할 trace/payload
 

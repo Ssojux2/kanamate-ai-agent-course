@@ -14,7 +14,7 @@
 
 ## 실습 흐름
 
-1. `notebook/01_나나를_깨우다.ipynb`에서 개인 일정 tool call의 기본 구조를 본다.
+1. `notebook/1주차_나나를_깨우다.ipynb`에서 개인 일정 tool call의 기본 구조를 본다.
 2. `personal_create_schedule`이 `title`, `date`, `start_time`, `attendees`를 받아 저장 payload를 만드는지 확인한다.
 3. `personal_list_schedules`로 현재 내 일정 목록을 조회한다.
 4. `personal_delete_schedule`로 `schedule_id`가 맞는 일정을 삭제한다.
