@@ -12,6 +12,24 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 uv sync
+uv run python - <<'PY'
+from importlib.metadata import version
+
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+from dotenv import load_dotenv
+from langchain.agents import create_agent
+from langchain.agents.middleware import AgentMiddleware
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+import chromadb
+import nbformat
+
+print("Environment health check passed.")
+print(f"langchain: {version('langchain')}")
+print(f"langgraph-prebuilt: {version('langgraph-prebuilt')}")
+PY
 uv run python -m ipykernel install --user --name kanamate --display-name "Python (KanaMate)" >/dev/null
 
 echo "uv environment synced."

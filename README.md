@@ -58,6 +58,86 @@ uv run jupyter notebook
 
 Jupyter에서 kernel은 `Python (KanaMate)`를 선택합니다.
 
+## uv 환경설정
+
+이 repo는 `uv`가 `.venv` 가상환경을 만들고 관리하는 방식으로 실습 환경을 맞춥니다. Python 버전은 `.python-version`과 `pyproject.toml` 기준으로 Python 3.10 계열을 사용하고, 실제 패키지 버전은 `uv.lock` 기준으로 고정됩니다.
+
+먼저 `uv`가 설치되어 있는지 확인합니다.
+
+```bash
+uv --version
+```
+
+명령이 실행되지 않으면 `uv`를 먼저 설치한 뒤 repo 루트에서 다음 스크립트를 실행합니다.
+
+```bash
+bash scripts/setup_uv_env.sh
+```
+
+이 스크립트는 세 가지 일을 합니다.
+
+1. `uv sync`로 `pyproject.toml`과 `uv.lock` 기준의 `.venv`를 생성하거나 동기화합니다.
+2. LangChain agent, OpenAI, ChromaDB, nbformat import가 정상인지 health check를 실행합니다.
+3. Jupyter에서 선택할 `Python (KanaMate)` kernel을 등록합니다.
+
+같은 작업을 직접 실행하려면 아래 명령을 사용합니다.
+
+```bash
+uv sync
+uv run python - <<'PY'
+from importlib.metadata import version
+
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+from dotenv import load_dotenv
+from langchain.agents import create_agent
+from langchain.agents.middleware import AgentMiddleware
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+import chromadb
+import nbformat
+
+print("Environment health check passed.")
+print(f"langchain: {version('langchain')}")
+print(f"langgraph-prebuilt: {version('langgraph-prebuilt')}")
+PY
+uv run python -m ipykernel install --user --name kanamate --display-name "Python (KanaMate)"
+```
+
+처음 clone한 환경에서는 `.venv`가 새로 만들어집니다. 이미 `.venv`가 있는 환경에서는 `uv sync`가 현재 환경을 `pyproject.toml`과 `uv.lock`에 맞게 다시 정렬합니다.
+
+LangChain 1.x agent import는 `langgraph-prebuilt` 전이 의존성 버전에 민감합니다. 이 repo는 노트북 재현성을 위해 `langgraph-prebuilt==1.0.8`을 직접 고정합니다. `from langchain.agents import create_agent`에서 `ExecutionInfo` import 오류가 나면 repo 루트에서 아래 명령으로 lockfile 기준 환경을 다시 맞춥니다.
+
+```bash
+uv sync --frozen
+bash scripts/setup_uv_env.sh
+```
+
+실습에는 OpenAI API key가 필요하므로 `.env` 파일도 준비합니다.
+
+```bash
+cp .env.example .env
+```
+
+`.env`에는 실제 key 값만 직접 채우고, 예시는 다음 형식을 따릅니다.
+
+```bash
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+환경 준비가 끝나면 Jupyter를 실행합니다.
+
+```bash
+uv run jupyter lab
+# 또는
+uv run jupyter notebook
+```
+
+Jupyter 화면에서 kernel은 `Python (KanaMate)`를 선택합니다. 이 kernel은 repo의 `.venv` Python을 사용합니다.
+
 ## 주차별 흐름
 
 | 주차 | 주제 | 이번 주에 만드는 것 | 핵심 학습 포인트 |
