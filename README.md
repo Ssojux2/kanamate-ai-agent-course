@@ -44,7 +44,7 @@ cp .env.example .env
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4.1-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
@@ -124,7 +124,7 @@ cp .env.example .env
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4.1-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
@@ -162,6 +162,7 @@ Jupyter 화면에서 kernel은 `Python (KanaMate)`를 선택합니다. 이 kerne
 
 ```text
 notebook/                         # 1-6주차 학습 노트북
+notebook/imgs/                    # 노트북에서 참조하는 강의 이미지 자료
 pyproject.toml                    # uv 프로젝트 의존성 정의
 uv.lock                           # uv 재현 환경 lockfile
 .python-version                   # uv가 사용할 Python 버전
