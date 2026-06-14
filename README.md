@@ -154,7 +154,7 @@ Jupyter 화면에서 kernel은 `Python (KanaMate)`를 선택합니다. 이 kerne
 - `personal_create_schedule`, `personal_list_schedules`, `personal_delete_schedule`: Nana 개인 일정 tool
 - `structured_response`: Pydantic으로 검증된 `personal_schedule`, `group_schedule`, `todo`, `reminder`, `unknown` payload
 - `structured_requests`, `schedules`, `todos`, `reminders`: structured output을 저장하는 SQLite table
-- `search_personal_references`, `search_saved_requests`: ChromaDB/SQLite Agentic RAG tool
+- `search_rag_memory`, `search_sqlite_requests`: ChromaDB/SQLite Agentic RAG search tool
 - `search_previous_conversations`, `load_conversation_messages`, `extract_schedules_from_history`: MCP SQLite 이전 대화 검색 tool
 - `nana_agent`, `kana_agent`: supervisor가 호출하는 delegate tool
 
