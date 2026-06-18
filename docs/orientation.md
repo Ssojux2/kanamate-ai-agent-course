@@ -49,15 +49,7 @@ bash scripts/setup_uv_env.sh
 cp .env.example .env
 ```
 
-`.env` 파일에는 다음 값을 넣는다. `PROXY_TOKEN` 값만 발급받은 API key로 바꿔 넣으면 된다.
-
-```bash
-PROXY_TOKEN=여기에 api key 입력
-PROXY_URL=https://mlapi.run/4bbd0c4d-bf02-4e59-a635-457b1c30c56a/v1
-EMBEDDING_PROXY_URL=https://mlapi.run/b54ff33e-6d14-42df-93f9-0f1132160ee8/v1
-OPENAI_MODEL=openai/gpt-4.1-mini
-OPENAI_EMBEDDING_MODEL=openai/text-embedding-3-small
-```
+`.env.example`을 복사한 뒤 `.env`에서 모든 항목을 확인한다. 노트북은 프록시 토큰, URL, 모델 이름을 코드 기본값 없이 repo 루트의 `.env`에서만 읽는다.
 
 Jupyter를 실행한다.
 

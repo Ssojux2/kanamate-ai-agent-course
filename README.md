@@ -40,15 +40,7 @@ uv run python -m ipykernel install --user --name kanamate --display-name "Python
 cp .env.example .env
 ```
 
-`.env`에 프록시 토큰을 설정합니다. `PROXY_TOKEN` 값만 발급받은 API key로 바꿔 넣으면 됩니다.
-
-```bash
-PROXY_TOKEN=여기에 api key 입력
-PROXY_URL=https://mlapi.run/4bbd0c4d-bf02-4e59-a635-457b1c30c56a/v1
-EMBEDDING_PROXY_URL=https://mlapi.run/b54ff33e-6d14-42df-93f9-0f1132160ee8/v1
-OPENAI_MODEL=openai/gpt-4.1-mini
-OPENAI_EMBEDDING_MODEL=openai/text-embedding-3-small
-```
+`.env.example`을 복사한 뒤 `.env`에서 모든 항목을 확인합니다. 노트북은 프록시 토큰, URL, 모델 이름을 코드 기본값 없이 repo 루트의 `.env`에서만 읽습니다.
 
 5. Jupyter를 실행합니다.
 
@@ -122,15 +114,7 @@ bash scripts/setup_uv_env.sh
 cp .env.example .env
 ```
 
-`.env`에는 `PROXY_TOKEN`의 실제 key 값만 직접 채우고, 예시는 다음 형식을 따릅니다.
-
-```bash
-PROXY_TOKEN=여기에 api key 입력
-PROXY_URL=https://mlapi.run/4bbd0c4d-bf02-4e59-a635-457b1c30c56a/v1
-EMBEDDING_PROXY_URL=https://mlapi.run/b54ff33e-6d14-42df-93f9-0f1132160ee8/v1
-OPENAI_MODEL=openai/gpt-4.1-mini
-OPENAI_EMBEDDING_MODEL=openai/text-embedding-3-small
-```
+`.env.example`을 복사한 뒤 `.env`에서 모든 항목을 확인합니다. 노트북은 프록시 토큰, URL, 모델 이름을 코드 기본값 없이 repo 루트의 `.env`에서만 읽습니다.
 
 환경 준비가 끝나면 Jupyter를 실행합니다.
 
